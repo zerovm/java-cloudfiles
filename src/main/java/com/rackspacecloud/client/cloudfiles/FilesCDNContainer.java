@@ -14,7 +14,22 @@ public class FilesCDNContainer {
 	private int ttl;
 	private String cdnURL;
 	private String name;
+	private boolean retainLogs;
 	
+	/**
+	 * @return the retainLogs
+	 */
+	public boolean getRetainLogs() {
+		return retainLogs;
+	}
+
+	/**
+	 * @param retainLogs the retainLogs to set
+	 */
+	public void setRetainLogs(boolean retainLogs) {
+		this.retainLogs = retainLogs;
+	}
+
 	public FilesCDNContainer() {
 	}
 	
@@ -22,19 +37,14 @@ public class FilesCDNContainer {
 		this.cdnURL = cdnURL;
 	}
 	
-	public FilesCDNContainer(String name, boolean enabled, int ttl) {
+	public FilesCDNContainer(String name, boolean enabled, int ttl, boolean retainLogs) {
 		this.enabled = enabled;
 		this.ttl = ttl;
 		this.name = name;
-		//this(enabled, ttl, null, null);
+		this.retainLogs = retainLogs;
 	}
 	
-//	public FilesCDNContainer(boolean enabled, int ttl, String userAgentACL, String referrerACL) {
-//		this.enabled = enabled;
-//		this.ttl = ttl;
-//		this.userAgentACL = userAgentACL;
-//		this.referrerACL = referrerACL;
-//	}
+
 	
 	/**
 	 * @return Is this container CDN enabled

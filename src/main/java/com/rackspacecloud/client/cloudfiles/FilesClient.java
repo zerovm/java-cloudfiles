@@ -516,12 +516,12 @@ public class FilesClient
      * @throws FilesException There was another error in the request to the server.
      * @throws FilesAuthorizationException The client's login was invalid.
      */
-    public List<FilesObject> listObjectsStaringWith (String container, String startsWith, String path, int limit, String marker) throws IOException, HttpException, FilesException
+    public List<FilesObject> listObjectsStartingWith (String container, String startsWith, String path, int limit, String marker) throws IOException, HttpException, FilesException
     {
     	if (!this.isLoggedin()) {
        		throw new FilesAuthorizationException("You must be logged in", null, null);
     	}
-    	if (!isValidContianerName(container))  {
+    	if (!isValidContainerName(container))  {
     		throw new FilesInvalidNameException(container);
     	}
     	GetMethod method = null;
@@ -657,7 +657,7 @@ public class FilesClient
      * @throws FilesAuthorizationException The client's login was invalid.
      */
     public List<FilesObject> listObjects(String container) throws IOException, HttpException, FilesAuthorizationException, FilesException {
-    	return listObjectsStaringWith(container, null, null, -1, null);
+    	return listObjectsStartingWith(container, null, null, -1, null);
     }
 
     /**
@@ -673,7 +673,7 @@ public class FilesClient
      * @throws FilesAuthorizationException The client's login was invalid.
      */
     public List<FilesObject> listObjects(String container, int limit) throws IOException, HttpException, FilesAuthorizationException, FilesException {
-    	return listObjectsStaringWith(container, null, null, limit, null);
+    	return listObjectsStartingWith(container, null, null, limit, null);
     }
 
     /**
@@ -688,7 +688,7 @@ public class FilesClient
      * @throws FilesException There was another error in the request to the server.
      */
     public List<FilesObject> listObjects(String container, String path) throws IOException, HttpException, FilesAuthorizationException, FilesException {
-    	return listObjectsStaringWith(container, null, path, -1, null);
+    	return listObjectsStartingWith(container, null, path, -1, null);
     }
 
     /**
@@ -706,7 +706,7 @@ public class FilesClient
      * @throws FilesAuthorizationException The client's login was invalid.
      */
     public List<FilesObject> listObjects(String container, String path, int limit) throws IOException, HttpException, FilesAuthorizationException, FilesException {
-    	return listObjectsStaringWith(container, null, path, limit, null);
+    	return listObjectsStartingWith(container, null, path, limit, null);
     }
 
     /**
@@ -723,7 +723,7 @@ public class FilesClient
      * @throws FilesException There was another error in the request to the server.
      */
     public List<FilesObject> listObjects(String container, String path, int limit, String marker) throws IOException, HttpException, FilesAuthorizationException, FilesException {
-    	return listObjectsStaringWith(container, null, path, limit, marker);
+    	return listObjectsStartingWith(container, null, path, limit, marker);
     }
     
     /**
@@ -740,7 +740,7 @@ public class FilesClient
      * @throws FilesAuthorizationException The client's login was invalid.
      */
     public List<FilesObject> listObjects(String container, int limit, String marker) throws IOException, HttpException, FilesAuthorizationException, FilesException {
-    	return listObjectsStaringWith(container, null, null, limit, marker);
+    	return listObjectsStartingWith(container, null, null, limit, marker);
     }
 
     /**
@@ -825,7 +825,7 @@ public class FilesClient
     {
     	if (this.isLoggedin())
     	{
-    		if (isValidContianerName(container))
+    		if (isValidContainerName(container))
     		{
 
     			HeadMethod method = null;
@@ -892,7 +892,7 @@ public class FilesClient
     {
     	if (this.isLoggedin())
     	{
-    		if (isValidContianerName(name))
+    		if (isValidContainerName(name))
     		{
     			// logger.warn(name + ":" + sanitizeForURI(name));
     			PutMethod method = new PutMethod(storageURL+"/"+sanitizeForURI(name));
@@ -959,7 +959,7 @@ public class FilesClient
     {
     	if (this.isLoggedin())
     	{
-    		if (isValidContianerName(name))
+    		if (isValidContainerName(name))
     		{
     			DeleteMethod method = new DeleteMethod(storageURL+"/"+sanitizeForURI(name));
     			try {
@@ -1028,7 +1028,7 @@ public class FilesClient
     	String returnValue = null;
     	if (this.isLoggedin())
     	{
-    		if (isValidContianerName(name))
+    		if (isValidContainerName(name))
     		{
     			PutMethod method = null;
     			try {
@@ -1086,8 +1086,9 @@ public class FilesClient
      * 
      * @param name The name of the container to enable
      * @param ttl How long the CDN can use the content before checking for an update.  A negative value will result in this not being changed.
-     * @param enabled True if this folder should be accessible, false otherwise
-      * @return The CDN Url of the container
+     * @param enabled True if this container should be accessible, false otherwise
+     * @param retainLogs True if cdn access logs should be kept for this container, false otherwise
+     * @return The CDN Url of the container
      * @throws IOException   There was an IO error doing network communication
      * @throws HttpException There was an error with the http protocol
      * @throws FilesException There was an error talking to the CDN Service
@@ -1097,13 +1098,13 @@ public class FilesClient
      * @param userAgentACL Unused for now
      */
 //    private String cdnUpdateContainer(String name, int ttl, boolean enabled, String referrerAcl, String userAgentACL) 
-    public String cdnUpdateContainer(String name, int ttl, boolean enabled) 
+    public String cdnUpdateContainer(String name, int ttl, boolean enabled, boolean retainLogs) 
     throws IOException, HttpException, FilesException
     {
     	String returnValue = null;
     	if (this.isLoggedin())
     	{
-    		if (isValidContianerName(name))
+    		if (isValidContainerName(name))
     		{
     			PostMethod method = null;
     			try {
@@ -1115,8 +1116,11 @@ public class FilesClient
     				if (ttl > 0) {
     					method.setRequestHeader(FilesConstants.X_CDN_TTL, Integer.toString(ttl));
     				}
-    				// Enabled
+       				// Enabled
     				method.setRequestHeader(FilesConstants.X_CDN_ENABLED, Boolean.toString(enabled));
+    				
+       				// Log Retention
+    				method.setRequestHeader(FilesConstants.X_CDN_RETAIN_LOGS, Boolean.toString(retainLogs));
 
 //  				// Referrer ACL
 //  				if(referrerAcl != null) {
@@ -1208,7 +1212,7 @@ public class FilesClient
     public FilesCDNContainer getCDNContainerInfo(String container) throws IOException, HttpException, FilesException
     {
     	if (isLoggedin()) {
-    		if (isValidContianerName(container))
+    		if (isValidContainerName(container))
     		{
     			HeadMethod method = null;
     			try {
@@ -1241,6 +1245,9 @@ public class FilesClient
     						String name = hdr.getName().toLowerCase();
     						if ("x-cdn-enabled".equals(name)) {
     							result.setEnabled(Boolean.valueOf(hdr.getValue()));
+    						}
+    						else if ("x-log-retention".equals(name)) {
+    							result.setRetainLogs(Boolean.valueOf(hdr.getValue()));
     						}
     						else if ("x-ttl".equals(name)) {
     							result.setTtl(Integer.parseInt(hdr.getValue()));
@@ -1299,7 +1306,7 @@ public class FilesClient
      */
     public void createPath(String container, String path) throws HttpException, IOException, FilesException {
 
-		if (!isValidContianerName(container))
+		if (!isValidContainerName(container))
 			throw new FilesInvalidNameException(container);
 		if (!isValidObjectName(path))
 			throw new FilesInvalidNameException(path);
@@ -1547,6 +1554,9 @@ public class FilesClient
      	    				else if ("cdn_enabled".equals(data.getNodeName())) {
      	    					container.setEnabled(Boolean.parseBoolean(data.getTextContent()));
      	    				}
+     	    				else if ("log_retention".equals(data.getNodeName())) {
+     	    					container.setRetainLogs(Boolean.parseBoolean(data.getTextContent()));
+     	    				}
      	    				else if ("ttl".equals(data.getNodeName())) {
      	    					container.setTtl(Integer.parseInt(data.getTextContent()));
      	    				}
@@ -1651,7 +1661,7 @@ public class FilesClient
     {
     	if (this.isLoggedin())
     	{
-    		if (isValidContianerName(container) && isValidObjectName(name) )
+    		if (isValidContainerName(container) && isValidObjectName(name) )
     		{
     			if (!obj.exists())
     			{
@@ -1785,7 +1795,7 @@ public class FilesClient
     	if (this.isLoggedin())
     	{
     		String objName	 =  name;
-    		if (isValidContianerName(container) && isValidObjectName(objName))
+    		if (isValidContainerName(container) && isValidObjectName(objName))
     		{
 
     			PutMethod method = null;
@@ -1881,7 +1891,7 @@ public class FilesClient
     	if (this.isLoggedin())
     	{
 			String objName	 =  name;
-			if (isValidContianerName(container) && isValidObjectName(objName))
+			if (isValidContainerName(container) && isValidObjectName(objName))
     		{
     			PutMethod method = new PutMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
     			method.setContentChunked(true);
@@ -1945,7 +1955,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     	if (this.isLoggedin())
     	{
 			String objName	 =  name;
-			if (isValidContianerName(container) && isValidObjectName(objName))
+			if (isValidContainerName(container) && isValidObjectName(objName))
     		{
     			PutMethod method = new PutMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
     			method.getParams().setSoTimeout(connectionTimeOut);
@@ -2020,7 +2030,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     {
     	if (this.isLoggedin())
     	{
-    		if (isValidContianerName(container) && isValidObjectName(objName))
+    		if (isValidContainerName(container) && isValidObjectName(objName))
     		{
     			DeleteMethod method = null;
     			try {
@@ -2077,7 +2087,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     	FilesObjectMetaData metaData;
     	if (this.isLoggedin())
     	{
-    		if (isValidContianerName(container) && isValidObjectName(objName))
+    		if (isValidContainerName(container) && isValidObjectName(objName))
     		{
     			HeadMethod method = new HeadMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
     			method.getParams().setSoTimeout(connectionTimeOut);
@@ -2153,7 +2163,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     {
     	if (this.isLoggedin())
     	{
-    		if (isValidContianerName(container) && isValidObjectName(objName))
+    		if (isValidContainerName(container) && isValidObjectName(objName))
     		{
     			GetMethod method = new GetMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
     			method.getParams().setSoTimeout(connectionTimeOut);
@@ -2206,7 +2216,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     {
     	if (this.isLoggedin())
     	{
-    		if (isValidContianerName(container) && isValidObjectName(objName))
+    		if (isValidContainerName(container) && isValidObjectName(objName))
     		{
     			if (objName.length() > FilesConstants.OBJECT_NAME_LENGTH)
     			{
@@ -2519,7 +2529,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
 		return client.getParams().getParameter(HttpMethodParams.USER_AGENT).toString();
 	}
 	
-	private boolean isValidContianerName(String name) {
+	private boolean isValidContainerName(String name) {
 		if (name == null) return false;
 		int length = name.length();
 		if (length == 0 || length > FilesConstants.CONTAINER_NAME_LENGTH) return false;
@@ -2549,4 +2559,60 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     public void setHostConfiguration(HostConfiguration config) {
         client.setHostConfiguration(config);
     }
+	private HttpMethod doUpdateObjectMetadata(String container, 
+			String object, Map<String,String> metadata) 
+			throws HttpException, IOException {
+			HttpClient httpClient;
+			PostMethod method;
+			
+	    	method = new PostMethod(storageURL +
+	    		"/"+FilesClient.sanitizeForURI(container)+
+	    		"/"+FilesClient.sanitizeForURI(object));
+	   		method.getParams().setSoTimeout(connectionTimeOut);
+	   		method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+	   		if (!(metadata == null || metadata.isEmpty())) {
+	   			for(String key:metadata.keySet())
+	   				method.setRequestHeader(FilesConstants.X_OBJECT_META+key, 
+	   					FilesClient.sanitizeForURI(metadata.get(key)));
+	   		}
+			
+	   		httpClient = new HttpClient();
+	   		httpClient.executeMethod(method);
+
+	   		return method;
+		}
+		
+		public boolean updateObjectMetadata(String container, String object, 
+			Map<String,String> metadata) throws FilesAuthorizationException, 
+			HttpException, IOException, FilesInvalidNameException {
+			HttpMethod method;
+			FilesResponse response;
+			
+	    	if (!isLoggedin) {
+	       		throw new FilesAuthorizationException("You must be logged in", 
+	       			null, null);
+	    	}
+			
+	    	if (!isValidContainerName(container))
+	    		throw new FilesInvalidNameException(container);	
+	    	if (!isValidObjectName(object))
+				throw new FilesInvalidNameException(object);
+	    	
+	    	method = null;
+	    	try {
+	    		method = doUpdateObjectMetadata(container, object, metadata);
+	    		response = new FilesResponse(method);
+	    		if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+	    			method.releaseConnection();
+	    			if(login()) {
+	    				method = doUpdateObjectMetadata(container, object, metadata);
+	    			}
+	    		}
+	    		
+	    		return true;
+	    	} finally {
+	    		if (method != null) 
+	    			method.releaseConnection();
+	    	}
+		}
 }

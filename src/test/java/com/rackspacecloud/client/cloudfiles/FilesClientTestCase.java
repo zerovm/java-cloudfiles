@@ -1276,16 +1276,18 @@ public class FilesClientTestCase extends TestCase {
 			String cdnUrl = info.getCdnURL();
 			assertNotNull(cdnUrl);
 			
-			client.cdnUpdateContainer(containerName, 31415, false);
+			client.cdnUpdateContainer(containerName, 31415, false, true);
 			info = client.getCDNContainerInfo(containerName);
 			assertFalse(info.isEnabled());
+			assertTrue(info.getRetainLogs());
 			assertEquals(31415, info.getTtl());
 			assertEquals(cdnUrl, info.getCdnURL());
 			
 			//client.cdnUpdateContainer(containerName, 54321, true, "Referrer Test", "User Agent Acl Test");
-			client.cdnUpdateContainer(containerName, 54321, true);
+			client.cdnUpdateContainer(containerName, 54321, true, false);
 			info = client.getCDNContainerInfo(containerName);
 			assertTrue(info.isEnabled());
+			assertFalse(info.getRetainLogs());
 			assertEquals(54321, info.getTtl());
 			assertEquals(cdnUrl, info.getCdnURL());
 //			assertEquals("Referrer Test", info.getReferrerACL());

@@ -12,7 +12,7 @@ public class FilesConstants
 {
     private static Logger logger = Logger.getLogger(FilesConstants.class);
     
-    public static final String USER_AGENT = "java-cloudfiles/1.3.2";
+    public static final String USER_AGENT = "java-cloudfiles/1.4.0";
     
     /** HTTP Header token that identifies the username to Cloud Files **/
     public static final String X_STORAGE_USER   = "x-auth-user";
@@ -36,6 +36,8 @@ public class FilesConstants
     public static final String X_CDN_URI = "X-CDN-URI";
     /** HTTP header token that is returned by calls to the CDN Management API **/
     public static final String X_CDN_TTL = "X-TTL";
+    /** HTTP header token that is returned by calls to the CDN Management API **/
+    public static final String X_CDN_RETAIN_LOGS = "X-Log-Retention";
     /** HTTP header token that is returned by calls to the CDN Management API **/
     public static final String X_CDN_ENABLED = "X-CDN-Enabled";
     /** HTTP header token that is returned by calls to the CDN Management API **/

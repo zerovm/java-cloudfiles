@@ -64,8 +64,8 @@
 			</classpath>
 			<include name="**"/>
 		</javac>
-		<copy file="${src}/com/mosso/client/cloudfiles/MIME.types" 
-		      todir="${classes}/com/mosso/client/cloudfiles" />
+		<copy file="${src}/com/rackspacecloud/client/cloudfiles/MIME.types" 
+		      todir="${classes}/com/rackspacecloud/client/cloudfiles" />
 		<jar jarfile="${dist}/${project.name}.jar" basedir="${classes}"/>
 	</target>
 
@@ -91,7 +91,7 @@
 	  <junit printsummary="yes" >
 	    <classpath refid="base.path" />
 	    <formatter type="brief" usefile="false" />
-            <test name="com.mosso.client.cloudfiles.FilesClientTestCase" />
+            <test name="com.rackspacecloud.client.cloudfiles.FilesClientTestCase" />
 	  </junit>
 	</target>
 	
@@ -100,7 +100,7 @@
 	  <junit>
 	    <classpath refid="base.path" />
 	    <formatter type="xml" />
-            <test name="com.mosso.client.cloudfiles.FilesClientTestCase" todir="${report.dir}" />
+            <test name="com.rackspacecloud.client.cloudfiles.FilesClientTestCase" todir="${report.dir}" />
 	  </junit>
 	  <junitreport todir="${report.dir}">
 	    <fileset dir="${report.dir}" includes="TEST-*.xml"/>
