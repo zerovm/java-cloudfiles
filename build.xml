@@ -8,7 +8,7 @@
     <!-- =============================================================== -->
 	<!-- Set project properties for folder locations                     -->
     <!-- =============================================================== -->
-    <property name="project.name" value="cloudfiles"/>
+    <property name="project.name" value="java-cloudfiles"/>
     
     <!-- Allow overrides to the properties set here -->
     <property file="local.properties" />
@@ -132,7 +132,7 @@
 		<copy file="log4j.properties" todir="${pkg-dir}" />
 		<copy file="COPYING" todir="${pkg-dir}" />
 	
-		<tar destfile="cloudfiles_binary.tar.gz" compression="gzip">
+		<tar destfile="java-cloudfiles-binary.tar.gz" compression="gzip">
 			<tarfileset dir="${pkg-dir}" prefix="cloudfiles/" />
 		</tar>	
 		
@@ -142,7 +142,7 @@
 		<copy todir="${pkg-dir}/src/main/java" >
 			<fileset dir="${src}" />
 		</copy>		
-		<tar destfile="cloudfiles_source.tar.gz" compression="gzip">
+		<tar destfile="java-cloudfiles-source.tar.gz" compression="gzip">
 			<tarfileset dir="${pkg-dir}" prefix="cloudfiles/" />
 		</tar>			
 	</target>
