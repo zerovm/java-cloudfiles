@@ -2194,7 +2194,8 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     				}	
     				else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND)
     				{
-    					throw new FilesNotFoundException("Container: " + container + " did not have object " + objName, response.getResponseHeaders(), response.getStatusLine());
+    					throw new FilesNotFoundException("Container: " + container + " did not have object " + objName, 
+									 response.getResponseHeaders(), response.getStatusLine());
     				}
     			}
     			finally {

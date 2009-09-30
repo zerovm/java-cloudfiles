@@ -119,6 +119,7 @@ public class FilesClientTestCase extends TestCase {
 	}
 	
 	public void testMultipleFilesNotThere() {
+	    // Tests to make sure we're releasing connections with 404's
 		FilesClient client = new FilesClient();
 		String filename = makeFileName("random");
 		String fullPath = FilenameUtils.concat(SYSTEM_TMP.getAbsolutePath(), filename);
