@@ -117,6 +117,46 @@ public class FilesClientTestCase extends TestCase {
 			fail(e.getMessage());
 		} 		
 	}
+	
+	public void testMultipleFilesNotThere() {
+		FilesClient client = new FilesClient();
+		String filename = makeFileName("random");
+		String fullPath = FilenameUtils.concat(SYSTEM_TMP.getAbsolutePath(), filename);
+		try {
+			byte[] content = makeRandomFile(fullPath);
+			assertTrue(client.login());
+			String containerName = createTempContainerName("file-not-there");
+			client.createContainer(containerName);
+			
+			String[] names =  new String[10];
+			for(int i=0; i < 10; ++i) names[i] = "File" + (i + 1) + ".txt";
+			for(int i=0; i < 5; ++i) 			
+				assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", names[i]));
+
+            for (int i = 0; i < 10; i++) {
+                String fileName = names[i];
+
+                byte[] retrievedContent = null;
+                try {
+                    retrievedContent = client.getObject(containerName, fileName);
+                    assertArrayEquals(content, retrievedContent);
+                } catch(FilesNotFoundException ex) {
+                    assertTrue(i >= 5);
+                }
+            }
+ 			// Cleanup
+			for(int i=0; i < 5; ++i) 			
+				client.deleteObject(containerName, names[i]);
+			client.deleteContainer(containerName);
+
+		} catch (Exception e) {
+			fail(e.getMessage());
+		} 
+		finally {
+			File f = new File(fullPath);
+			f.delete();
+		}
+	}
 
 	public void testContainerCreation() {
 		FilesClient client = new FilesClient();
@@ -239,7 +279,7 @@ public class FilesClientTestCase extends TestCase {
 		FilesClient client = new FilesClient();
 		try {
 			assertTrue(client.login());
-			String containerName = createTempContainerName("<container>");
+			String containerName = createTempContainerName("<container with\u1422 spaces>");
 			
 			// Make sure it's not there
 			assertFalse(client.containerExists(containerName));
@@ -383,6 +423,7 @@ public class FilesClientTestCase extends TestCase {
 			
 		}
 		catch (Exception e) {
+			e.printStackTrace();
 			fail(e.getMessage());
 		}
 		finally {
@@ -1199,7 +1240,7 @@ public class FilesClientTestCase extends TestCase {
 		FilesClient client = new FilesClient();
 		try {
 			assertTrue(client.login());
-			
+						
 			List<String> originalContainers = client.listCdnContainers();
 			assertTrue(originalContainers.size() > 0);
 			
@@ -1245,6 +1286,21 @@ public class FilesClientTestCase extends TestCase {
 			fail(e.getMessage());
 		} 
 	}
+	
+	
+	public void testCDNContainerFullListingAll() {
+		FilesClient client = new FilesClient();
+		try {
+			assertTrue(client.login());
+			String container = createTempContainerName("aaa_\u1422_aaa");
+			client.cdnEnableContainer(container);
+			// Now do a limit
+			client.listCdnContainerInfo();
+		} catch (Exception e) {
+			fail(e.getMessage());
+		} 
+	}
+	
 	
 	public void testCDNApi() {
 		String containerName = createTempContainerName("java api Test\u03DA_\u2042\u03de#<>\u2043\u2042\u2044\u2045");
