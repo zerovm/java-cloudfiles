@@ -776,35 +776,43 @@ public class FilesClient
    public FilesAccountInfo getAccountInfo() throws IOException, HttpException, FilesAuthorizationException, FilesException
    {
     	if (this.isLoggedin()) {
-			HeadMethod method = new HeadMethod(storageURL);
-			method.getParams().setSoTimeout(connectionTimeOut);
-			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-			client.executeMethod(method);
+    		HeadMethod method = null;
 
-			FilesResponse response = new FilesResponse(method);
-       		if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    			method.removeRequestHeader(FilesConstants.X_AUTH_TOKEN);
-    			if(login()) {
-    				method = new HeadMethod(storageURL);
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    				client.executeMethod(method);
-    				response = new FilesResponse(method);
+    		try {
+    			method = new HeadMethod(storageURL);
+    			method.getParams().setSoTimeout(connectionTimeOut);
+    			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			client.executeMethod(method);
+
+    			FilesResponse response = new FilesResponse(method);
+    			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+    				method.removeRequestHeader(FilesConstants.X_AUTH_TOKEN);
+    				if(login()) {
+    					method.releaseConnection();
+    					method = new HeadMethod(storageURL);
+    					method.getParams().setSoTimeout(connectionTimeOut);
+    					method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    					client.executeMethod(method);
+    					response = new FilesResponse(method);
+    				}
+    				else {
+    					throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
+    				}
+    			}
+
+    			if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
+    			{
+    				int nContainers = response.getAccountContainerCount();
+    				long totalSize  = response.getAccountBytesUsed();
+    				return new FilesAccountInfo(totalSize,nContainers);
     			}
     			else {
-    				throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
+    				throw new FilesException("Unexpected return from server", response.getResponseHeaders(), response.getStatusLine());
     			}
     		}
-
-			if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
-			{
-				int nContainers = response.getAccountContainerCount();
-				long totalSize  = response.getAccountBytesUsed();
-				return new FilesAccountInfo(totalSize,nContainers);
-			}
-			else {
-				throw new FilesException("Unexpected return from server", response.getResponseHeaders(), response.getStatusLine());
-			}
+    		finally {
+    			if (method != null) method.releaseConnection();
+    		}
     	}
     	else {
        		throw new FilesAuthorizationException("You must be logged in", null, null);
@@ -894,7 +902,6 @@ public class FilesClient
     	{
     		if (isValidContainerName(name))
     		{
-    			// logger.warn(name + ":" + sanitizeForURI(name));
     			PutMethod method = new PutMethod(storageURL+"/"+sanitizeForURI(name));
     			method.getParams().setSoTimeout(connectionTimeOut);
     			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
@@ -1528,6 +1535,7 @@ public class FilesClient
     			{
      				DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
      				DocumentBuilder builder = factory.newDocumentBuilder();
+     				//logger.error("CDN LGV:\n" + response.getResponseBodyAsString());
      				Document document = builder.parse(response.getResponseBodyAsStream());
 
      	    		NodeList nodes = document.getChildNodes();
@@ -2090,45 +2098,49 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     		if (isValidContainerName(container) && isValidObjectName(objName))
     		{
     			HeadMethod method = new HeadMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-    			method.getParams().setSoTimeout(connectionTimeOut);
-    			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			try {
+    				method.getParams().setSoTimeout(connectionTimeOut);
 
-    			client.executeMethod(method);
+    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
 
-    			FilesResponse response = new FilesResponse(method);
+    				client.executeMethod(method);
 
-    			if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
-    			{
-    				logger.debug ("Object metadata retreived  : "+objName);
-    				String mimeType = response.getContentType();
-    				String lastModified = response.getLastModified();
-    				String eTag = response.getETag();
-    				String contentLength = response.getContentLength();
+    				FilesResponse response = new FilesResponse(method);
 
-    				metaData = new FilesObjectMetaData(mimeType, contentLength, eTag, lastModified);
-
-    				Header [] headers = response.getResponseHeaders();
-    				HashMap<String,String> headerMap = new HashMap<String,String>();
-
-    				for (Header h: headers)
+    				if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
     				{
-    					if ( h.getName().startsWith(FilesConstants.X_OBJECT_META) )
+    					logger.debug ("Object metadata retreived  : "+objName);
+    					String mimeType = response.getContentType();
+    					String lastModified = response.getLastModified();
+    					String eTag = response.getETag();
+    					String contentLength = response.getContentLength();
+
+    					metaData = new FilesObjectMetaData(mimeType, contentLength, eTag, lastModified);
+
+    					Header [] headers = response.getResponseHeaders();
+    					HashMap<String,String> headerMap = new HashMap<String,String>();
+
+    					for (Header h: headers)
     					{
-    						headerMap.put(h.getName().substring(FilesConstants.X_OBJECT_META.length()), unencodeURI(h.getValue()));
+    						if ( h.getName().startsWith(FilesConstants.X_OBJECT_META) )
+    						{
+    							headerMap.put(h.getName().substring(FilesConstants.X_OBJECT_META.length()), unencodeURI(h.getValue()));
+    						}
     					}
+    					if (headerMap.size() > 0)
+    						metaData.setMetaData(headerMap);
+
+    					return metaData;
     				}
-    				if (headerMap.size() > 0)
-    					metaData.setMetaData(headerMap);
-
-    				return metaData;
+    				else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND)
+    				{
+    					logger.info ("Object " + objName + " was not found  !");
+    					return null;
+    				}
     			}
-    			else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND)
-    			{
-    				logger.info ("Object " + objName + " was not found  !");
-    				return null;
+    			finally {
+    				method.releaseConnection();
     			}
-
-    			method.releaseConnection();
     		}
     		else
     		{
@@ -2169,21 +2181,25 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     			method.getParams().setSoTimeout(connectionTimeOut);
     			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
 
-    			client.executeMethod(method);
+    			try {
+    				client.executeMethod(method);
+    	
 
-    			FilesResponse response = new FilesResponse(method);
+    				FilesResponse response = new FilesResponse(method);
 
-    			if (response.getStatusCode() == HttpStatus.SC_OK)
-    			{
-    				logger.debug ("Object data retreived  : "+objName);
-    				return response.getResponseBody();
+    				if (response.getStatusCode() == HttpStatus.SC_OK)
+    				{	
+    					logger.debug ("Object data retreived  : "+objName);
+    					return response.getResponseBody();
+    				}	
+    				else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND)
+    				{
+    					throw new FilesNotFoundException("Container: " + container + " did not have object " + objName, response.getResponseHeaders(), response.getStatusLine());
+    				}
     			}
-    			else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND)
-    			{
-    				throw new FilesNotFoundException("Container: " + container + " did not have object " + objName, response.getResponseHeaders(), response.getStatusLine());
+    			finally {
+    				method.releaseConnection();
     			}
-
-    			method.releaseConnection();
     		}
     		else
     		{
@@ -2236,15 +2252,15 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     			if (response.getStatusCode() == HttpStatus.SC_OK)
     			{
     				logger.info ("Object data retreived  : "+objName);
+    				// DO NOT RELEASE THIS CONNECTION
     				return response.getResponseBodyAsStream();
     			}
     			else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND)
     			{
+    				method.releaseConnection();
     				logger.info ("Object " + objName + " was not found  !");
     				return null;
     			}
-
-    			method.releaseConnection();
     		}
     		else
     		{
