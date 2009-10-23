@@ -212,8 +212,10 @@ public class FilesClient
         GetMethod method = new GetMethod(authenticationURL);
         method.getParams().setSoTimeout(connectionTimeOut);
 
-        method.setRequestHeader(FilesConstants.X_STORAGE_USER, username);
-        method.setRequestHeader(FilesConstants.X_STORAGE_PASS, password);
+        method.setRequestHeader(FilesUtil.getProperty("auth_user_header", FilesConstants.X_STORAGE_USER_DEFAULT), 
+        		username);
+        method.setRequestHeader(FilesUtil.getProperty("auth_pass_header", FilesConstants.X_STORAGE_PASS_DEFAULT), 
+        		password);
 
         logger.debug ("Logging in user: "+username+" using URL: "+authenticationURL);
         client.executeMethod(method);
@@ -1535,7 +1537,6 @@ public class FilesClient
     			{
      				DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
      				DocumentBuilder builder = factory.newDocumentBuilder();
-     				//logger.error("CDN LGV:\n" + response.getResponseBodyAsString());
      				Document document = builder.parse(response.getResponseBodyAsStream());
 
      	    		NodeList nodes = document.getChildNodes();
@@ -1982,6 +1983,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     				client.executeMethod(method);
         			FilesResponse response = new FilesResponse(method);
         			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+        				method.releaseConnection();
         				login();
         				method = new PutMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
             			method.getParams().setSoTimeout(connectionTimeOut);
@@ -2047,6 +2049,18 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     				client.executeMethod(method);
     				FilesResponse response = new FilesResponse(method);
+    				
+           			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+           				method.releaseConnection();
+        				login();
+           				method = new DeleteMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+            			method.getParams().setSoTimeout(connectionTimeOut);
+        				method.getParams().setSoTimeout(connectionTimeOut);
+        				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+        				client.executeMethod(method);
+        				response = new FilesResponse(method);
+        			}
+
 
     				if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
     				{
@@ -2100,14 +2114,21 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     			HeadMethod method = new HeadMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
     			try {
     				method.getParams().setSoTimeout(connectionTimeOut);
-
     				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-
     				client.executeMethod(method);
 
     				FilesResponse response = new FilesResponse(method);
+   				
+           			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+           				method.releaseConnection();
+        				login();
+           				method.getParams().setSoTimeout(connectionTimeOut);
+        				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+        				client.executeMethod(method);
+        				response = new FilesResponse(method);
+        			}
 
-    				if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
+           			if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
     				{
     					logger.debug ("Object metadata retreived  : "+objName);
     					String mimeType = response.getContentType();
@@ -2245,12 +2266,20 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     			GetMethod method = new GetMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
     			method.getParams().setSoTimeout(connectionTimeOut);
     			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-
     			client.executeMethod(method);
-
     			FilesResponse response = new FilesResponse(method);
 
-    			if (response.getStatusCode() == HttpStatus.SC_OK)
+      			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+       				method.releaseConnection();
+    				login();
+    				method = new GetMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+        			method.getParams().setSoTimeout(connectionTimeOut);
+        			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+        			client.executeMethod(method);
+        			response = new FilesResponse(method);
+    			}
+
+      			if (response.getStatusCode() == HttpStatus.SC_OK)
     			{
     				logger.info ("Object data retreived  : "+objName);
     				// DO NOT RELEASE THIS CONNECTION
@@ -2453,7 +2482,8 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     }
 
     /**
-     * Has this instance of the client authenticated itself?
+     * Has this instance of the client authenticated itself?  Note, this does not mean that a call 
+     * right now will work, if the auth token has timed out, you will need to re-auth.
      * 
      * @return True if we logged in, false otherwise.
      */
