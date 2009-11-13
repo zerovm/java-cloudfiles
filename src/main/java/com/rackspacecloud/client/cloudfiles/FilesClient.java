@@ -1090,6 +1090,12 @@ public class FilesClient
     	return returnValue;
     }
     
+    public String cdnUpdateContainer(String name, int ttl, boolean enabled, boolean retainLogs) 
+    throws IOException, HttpException, FilesException
+    {
+    	return cdnUpdateContainer(name, ttl, enabled, null, null, retainLogs);
+    }
+
     /**
      * Enables access of files in this container via the Content Delivery Network.
      * 
@@ -1106,8 +1112,7 @@ public class FilesClient
      * @param referrerAcl Unused for now
      * @param userAgentACL Unused for now
      */
-//    private String cdnUpdateContainer(String name, int ttl, boolean enabled, String referrerAcl, String userAgentACL) 
-    public String cdnUpdateContainer(String name, int ttl, boolean enabled, boolean retainLogs) 
+    private String cdnUpdateContainer(String name, int ttl, boolean enabled, String referrerAcl, String userAgentACL, boolean retainLogs) 
     throws IOException, HttpException, FilesException
     {
     	String returnValue = null;
@@ -1127,19 +1132,19 @@ public class FilesClient
     				}
        				// Enabled
     				method.setRequestHeader(FilesConstants.X_CDN_ENABLED, Boolean.toString(enabled));
-    				
-       				// Log Retention
+
+    				// Log Retention
     				method.setRequestHeader(FilesConstants.X_CDN_RETAIN_LOGS, Boolean.toString(retainLogs));
 
-//  				// Referrer ACL
-//  				if(referrerAcl != null) {
-//  				method.setRequestHeader(FilesConstants.X_CDN_REFERRER_ACL, referrerAcl);
-//  				}
+    				// Referrer ACL
+    				if(referrerAcl != null) {
+    					method.setRequestHeader(FilesConstants.X_CDN_REFERRER_ACL, referrerAcl);
+    				}
 
-//  				// User Agent ACL
-//  				if(userAgentACL != null) {
-//  				method.setRequestHeader(FilesConstants.X_CDN_USER_AGENT_ACL, userAgentACL);
-//  				}
+    				// User Agent ACL
+    				if(userAgentACL != null) {
+    					method.setRequestHeader(FilesConstants.X_CDN_USER_AGENT_ACL, userAgentACL);
+    				}
     				client.executeMethod(method);
 
     				FilesResponse response = new FilesResponse(method);
@@ -1192,22 +1197,7 @@ public class FilesClient
     	}
     	return returnValue;
     }
-    
-   /* *
-    * Enables access of files in this container via the Content Delivery Network.
-    * 
-    * @param name The name of the container to enable
-    * @param ttl How long the CDN can use the content before checking for an update.  A negative value will result in this not being changed.
-    * @param enabled True if this folder should be accesible, false otherwise
-    * @return The CDN Url of the container
-    * @throws IOException   There was an IO error doing network communication
-    * @throws HttpException There was an error with the http protocol
-    * @throws FilesAuthorizationException Authentication failed
-    */
-//    public String cdnUpdateContainer(String name, int ttl, boolean enabled) throws IOException, HttpException, FilesAuthorizationException
-//    {
-//    	return cdnUpdateContainer(name, ttl, enabled, (String) null, (String) null);
-//    }
+   
     
     /**
      * Gets current CDN sharing status of the container
@@ -1260,6 +1250,12 @@ public class FilesClient
     						}
     						else if ("x-ttl".equals(name)) {
     							result.setTtl(Integer.parseInt(hdr.getValue()));
+    						}
+    						else if ("x-referrer-acl".equals(name)) {
+    							result.setReferrerACL(hdr.getValue());
+    						}
+    						else if ("x-user-agent-acl".equals(name)) {
+    							result.setUserAgentACL(hdr.getValue());
     						}
     					}
     					return result;
@@ -1568,6 +1564,12 @@ public class FilesClient
      	    				}
      	    				else if ("ttl".equals(data.getNodeName())) {
      	    					container.setTtl(Integer.parseInt(data.getTextContent()));
+     	    				}
+     	    				else if ("referrer_acl".equals(data.getNodeName())) {
+     	    					container.setReferrerACL(data.getTextContent());
+     	    				}
+     	    				else if ("useragent_acl".equals(data.getNodeName())) {
+     	    					container.setUserAgentACL(data.getTextContent());
      	    				}
      	    				else {
      	    					//logger.warn("Unexpected container-info tag:" + data.getNodeName());

@@ -9,8 +9,8 @@ package com.rackspacecloud.client.cloudfiles;
  */
 public class FilesCDNContainer {
 	private boolean enabled;
-//	private String userAgentACL;
-//	private String referrerACL;
+	private String userAgentACL;
+	private String referrerACL;
 	private int ttl;
 	private String cdnURL;
 	private String name;
@@ -58,30 +58,30 @@ public class FilesCDNContainer {
 	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
 	}
-//	/**
-//	 * @return the userAgentACL
-//	 */
-//	public String getUserAgentACL() {
-//		return userAgentACL;
-//	}
-//	/**
-//	 * @param userAgentACL the userAgentACL to set
-//	 */
-//	public void setUserAgentACL(String userAgentACL) {
-//		this.userAgentACL = userAgentACL;
-//	}
-//	/**
-//	 * @return the refererACL
-//	 */
-//	public String getReferrerACL() {
-//		return referrerACL;
-//	}
-//	/**
-//	 * @param refererACL the refererACL to set
-//	 */
-//	public void setReferrerACL(String referrerACL) {
-//		this.referrerACL = referrerACL;
-//	}
+	/**
+	 * @return the userAgentACL
+	 */
+	public String getUserAgentACL() {
+		return userAgentACL;
+	}
+	/**
+	 * @param userAgentACL the userAgentACL to set
+	 */
+	public void setUserAgentACL(String userAgentACL) {
+		this.userAgentACL = "".equals(userAgentACL) ? null : userAgentACL;
+	}
+	/**
+	 * @return the refererACL
+	 */
+	public String getReferrerACL() {
+		return referrerACL;
+	}
+	/**
+	 * @param refererACL the refererACL to set
+	 */
+	public void setReferrerACL(String referrerACL) {
+		this.referrerACL = "".equals(referrerACL) ? null : referrerACL;
+	}
 	/**
 	 * @return the ttl
 	 */
