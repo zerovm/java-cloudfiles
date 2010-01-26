@@ -2038,7 +2038,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
      * @throws HttpException There was an error with the http protocol
      * @throws FilesException 
      */
-    public void deleteObject (String container, String objName) throws IOException, HttpException, FilesException
+    public void deleteObject (String container, String objName) throws IOException, FilesNotFoundException, HttpException, FilesException
     {
     	if (this.isLoggedin())
     	{
@@ -2157,8 +2157,8 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     				}
     				else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND)
     				{
-    					logger.info ("Object " + objName + " was not found  !");
-    					return null;
+    					throw new FilesNotFoundException("Container: " + container + " did not have object " + objName, 
+								 response.getResponseHeaders(), response.getStatusLine());
     				}
     			}
     			finally {
@@ -2290,8 +2290,8 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     			else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND)
     			{
     				method.releaseConnection();
-    				logger.info ("Object " + objName + " was not found  !");
-    				return null;
+					throw new FilesNotFoundException("Container: " + container + " did not have object " + objName, 
+							 response.getResponseHeaders(), response.getStatusLine());
     			}
     		}
     		else
