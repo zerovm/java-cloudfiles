@@ -217,11 +217,10 @@ public class FilesClient
         method.setRequestHeader(FilesUtil.getProperty("auth_pass_header", FilesConstants.X_STORAGE_PASS_DEFAULT), 
         		password);
 
-        logger.debug ("Logging in user: "+username+" using URL: "+authenticationURL);
         client.executeMethod(method);
 
         FilesResponse response = new FilesResponse(method);
-
+        
         if (response.loginSuccess())
         {
             isLoggedin   = true;
