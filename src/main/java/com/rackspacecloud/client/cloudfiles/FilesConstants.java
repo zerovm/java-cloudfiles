@@ -12,7 +12,7 @@ public class FilesConstants
 {
     private static Logger logger = Logger.getLogger(FilesConstants.class);
     
-    public static final String USER_AGENT = "java-cloudfiles/1.5.1";
+    public static final String USER_AGENT = "java-cloudfiles/1.5.2";
     
     /** HTTP Header token that identifies the username to Cloud Files **/
     public static final String X_STORAGE_USER_DEFAULT   = "x-auth-user";

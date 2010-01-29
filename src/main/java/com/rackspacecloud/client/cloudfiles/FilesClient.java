@@ -1206,8 +1206,9 @@ public class FilesClient
      * @throws IOException   There was an IO error doing network communication
      * @throws HttpException There was an error with the http protocol
      * @throws FilesException There was an error talking to the CloudFiles Server
+     * @throws FilesNotFoundException The Container has never been CDN enabled
      */
-    public FilesCDNContainer getCDNContainerInfo(String container) throws IOException, HttpException, FilesException
+    public FilesCDNContainer getCDNContainerInfo(String container) throws IOException, FilesNotFoundException, HttpException, FilesException
     {
     	if (isLoggedin()) {
     		if (isValidContainerName(container))
@@ -1263,6 +1264,10 @@ public class FilesClient
     					logger.warn("Unauthorized access");
     					throw new FilesAuthorizationException("User not Authorized!",response.getResponseHeaders(), response.getStatusLine());
     				}
+       				else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
+     					throw new FilesNotFoundException("Container is not CDN enabled",response.getResponseHeaders(), response.getStatusLine());
+    				}
+ 
     				else {
     					throw new FilesException("Unexpected result from server: ", response.getResponseHeaders(), response.getStatusLine());
     				}
@@ -2104,8 +2109,9 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
      * @throws HttpException There was an error with the http protocol
      * @throws FilesAuthorizationException The Client's Login was invalid.  
      * @throws FilesInvalidNameException The container or object name was not valid
+     * @throws FilesNotFoundException The file was not found
      */
-    public FilesObjectMetaData getObjectMetaData (String container, String objName) throws IOException, HttpException, FilesAuthorizationException, FilesInvalidNameException
+    public FilesObjectMetaData getObjectMetaData (String container, String objName) throws IOException, FilesNotFoundException, HttpException, FilesAuthorizationException, FilesInvalidNameException
     {
     	FilesObjectMetaData metaData;
     	if (this.isLoggedin())
@@ -2249,9 +2255,10 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
      * @throws IOException   There was an IO error doing network communication
      * @throws HttpException There was an error with the http protocol
      * @throws FilesAuthorizationException 
+     * @throws FilesNotFoundException The container does not exist
      * @throws FilesInvalidNameException 
      */
-    public InputStream getObjectAsStream (String container, String objName) throws IOException, HttpException, FilesAuthorizationException, FilesInvalidNameException
+    public InputStream getObjectAsStream (String container, String objName) throws IOException, HttpException, FilesAuthorizationException, FilesInvalidNameException, FilesNotFoundException
     {
     	if (this.isLoggedin())
     	{
