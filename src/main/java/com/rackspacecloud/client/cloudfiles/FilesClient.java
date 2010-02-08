@@ -353,7 +353,7 @@ public class FilesClient
     						count = Integer.parseInt(data.getTextContent());
     					}
     					else {
-    						logger.warn("Unexpected container-info tag:" + data.getNodeName());
+    						logger.debug("Unexpected container-info tag:" + data.getNodeName());
     					}
     				}
     				if (name != null) {
@@ -617,7 +617,7 @@ public class FilesClient
     					FilesObject obj = new FilesObject(name, container, this);
     					if (eTag != null) obj.setMd5sum(eTag);
     					if (mimeType != null) obj.setMimeType(mimeType); 
-    					if (size > 0) obj.setSize(size);
+    					if (size >= 0) obj.setSize(size);
     					if (lastModified != null) obj.setLastModified(lastModified);
     					objectList.add(obj);
     				}
@@ -1288,7 +1288,83 @@ public class FilesClient
     	}
     }
     
-    /* *
+    /**
+     * Gets current CDN sharing status of the container
+     * 
+     * @param name The name of the container to enable
+     * @return Information on the container
+     * @throws IOException   There was an IO error doing network communication
+     * @throws HttpException There was an error with the http protocol
+     * @throws FilesException There was an error talking to the CloudFiles Server
+     * @throws FilesNotFoundException The Container has never been CDN enabled
+     */
+    public boolean isCDNEnabled(String container) throws IOException, HttpException, FilesException
+    {
+    	if (isLoggedin()) {
+    		if (isValidContainerName(container))
+    		{
+    			HeadMethod method = null;
+    			try {
+    				method= new HeadMethod(cdnManagementURL+"/"+sanitizeForURI(container));
+    				method.getParams().setSoTimeout(connectionTimeOut);
+    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				client.executeMethod(method);
+
+    				FilesResponse response = new FilesResponse(method);
+
+    				if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+    					method.releaseConnection();
+    					if(login()) {
+    						method= new HeadMethod(cdnManagementURL+"/"+sanitizeForURI(container));
+    						method.getParams().setSoTimeout(connectionTimeOut);
+    						method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    						client.executeMethod(method);
+    						response = new FilesResponse(method);
+    					}
+    					else {
+    						throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
+    					}
+    				}
+
+    				if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
+    				{
+     					for (Header hdr : response.getResponseHeaders()) { 
+    						String name = hdr.getName().toLowerCase();
+    						if ("x-cdn-enabled".equals(name)) {
+    							 return Boolean.valueOf(hdr.getValue());
+    						}
+    					}
+     					throw new FilesException("Server did not return X-CDN-Enabled header: ", response.getResponseHeaders(), response.getStatusLine());
+    				}
+    				else if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+    					logger.warn("Unauthorized access");
+    					throw new FilesAuthorizationException("User not Authorized!",response.getResponseHeaders(), response.getStatusLine());
+    				}
+       				else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
+     					return false;
+    				}
+ 
+    				else {
+    					throw new FilesException("Unexpected result from server: ", response.getResponseHeaders(), response.getStatusLine());
+    				}
+    			}
+    			finally {
+    				if (method != null) {
+    					method.releaseConnection();
+    				}
+    			}
+    		}
+    		else
+    		{
+    			throw new FilesInvalidNameException(container);
+    		}
+    	}
+    	else {
+    		throw new FilesAuthorizationException("You must be logged in", null, null);
+    	}
+    }
+    
+   /* *
      * Not currently used (but soon will be)
      * @param container
      */    
@@ -2135,7 +2211,8 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
         				response = new FilesResponse(method);
         			}
 
-           			if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
+           			if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT ||
+           			    response.getStatusCode() == HttpStatus.SC_OK)
     				{
     					logger.debug ("Object metadata retreived  : "+objName);
     					String mimeType = response.getContentType();
@@ -2165,6 +2242,10 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     					throw new FilesNotFoundException("Container: " + container + " did not have object " + objName, 
 								 response.getResponseHeaders(), response.getStatusLine());
     				}
+    				else {
+    						throw new FilesException("Unexpected Return Code from Server", 
+    								response.getResponseHeaders(), response.getStatusLine());
+    				}
     			}
     			finally {
     				method.releaseConnection();
@@ -2183,7 +2264,6 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     	else {
        		throw new FilesAuthorizationException("You must be logged in", null, null);
     	}
-    	return null;
     }
 
 
