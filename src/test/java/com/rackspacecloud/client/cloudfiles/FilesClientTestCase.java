@@ -577,6 +577,7 @@ public class FilesClientTestCase extends TestCase {
 			
 			// Make sure the metadata is correct
 			FilesObjectMetaData metadata = client.getObjectMetaData(containerName, filename);
+			assertNotNull(metadata);
 			Map<String,String> serverMetadata = metadata.getMetaData();
 			assertEquals(meta.size(), serverMetadata.size());
 			for(String key : meta.keySet()) {
@@ -589,7 +590,12 @@ public class FilesClientTestCase extends TestCase {
 			assertTrue(client.deleteContainer(containerName));
 			
 		}
+		catch (FilesException e) {
+			e.printStackTrace();
+			fail(e.getHttpStatusMessage() + ":" + e.getMessage());
+		}
 		catch (Exception e) {
+			e.printStackTrace();
 			fail(e.getMessage());
 		}
 		finally {
@@ -1313,9 +1319,12 @@ public class FilesClientTestCase extends TestCase {
 			
 			List<String> containers = client.listCdnContainers();
 			int originalContainerListSize = containers.size();
+			
+			assertFalse(client.isCDNEnabled(containerName));
 	
 			String url = client.cdnEnableContainer(containerName);
 			assertNotNull(url);
+			assertTrue(client.isCDNEnabled(containerName));
 			containers = client.listCdnContainers();
 			assertEquals(originalContainerListSize + 1, containers.size());
 			
@@ -1334,6 +1343,7 @@ public class FilesClientTestCase extends TestCase {
 			assertNotNull(cdnUrl);
 			
 			client.cdnUpdateContainer(containerName, 31415, false, true);
+			assertFalse(client.isCDNEnabled(containerName));
 			info = client.getCDNContainerInfo(containerName);
 			assertFalse(info.isEnabled());
 			assertTrue(info.getRetainLogs());
@@ -1342,6 +1352,7 @@ public class FilesClientTestCase extends TestCase {
 			
 			//client.cdnUpdateContainer(containerName, 54321, true, "Referrer Test", "User Agent Acl Test");
 			client.cdnUpdateContainer(containerName, 54321, true, false);
+			assertTrue(client.isCDNEnabled(containerName));
 			info = client.getCDNContainerInfo(containerName);
 			assertTrue(info.isEnabled());
 			assertFalse(info.getRetainLogs());
