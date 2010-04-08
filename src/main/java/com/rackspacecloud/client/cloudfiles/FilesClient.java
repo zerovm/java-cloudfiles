@@ -2768,7 +2768,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
 			return snet;
 		}
 		private boolean envSnet(){
-			if (System.getenv("snet") == null) {
+			if (System.getenv("RACKSPACE_SERVICENET") == null) {
 				return false;
 			}
 			else{
