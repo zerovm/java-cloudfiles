@@ -100,7 +100,7 @@ public class FilesClient
     private boolean isLoggedin = false;
     private boolean useETag = true;
     private boolean snet = false;
-    private String snetAddr = "snet-";
+    private String snetAddr = "https://snet-";
 
     private HttpClient client = new HttpClient(new MultiThreadedHttpConnectionManager());
 
@@ -227,7 +227,7 @@ public class FilesClient
         {
             isLoggedin   = true;
             if(usingSnet()){
-            	storageURL   = snetAddr + response.getStorageURL();
+            	storageURL = snetAddr + response.getStorageURL().substring(8);
             }
             else{
             	storageURL = response.getStorageURL();
