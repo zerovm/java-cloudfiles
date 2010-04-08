@@ -220,7 +220,8 @@ public class SnetFilesClientTestCase extends TestCase {
 			
 			// Add it
 			client.createContainer(containerName);
-			
+			client.usePublic();
+			assertFalse(client.usingSnet());
 			// See that it's there
 			assertTrue(client.containerExists(containerName));
 			assertNotNull(client.getContainerInfo(containerName));

@@ -2759,9 +2759,23 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
 	    	
 		}
 		public void useSnet(){
+			if(snet){
+			}
+			else{
 			snet = true;
 			if(storageURL != null){
 				storageURL = snetAddr + storageURL.substring(8);
+			 }
+			}
+		}
+		public void usePublic(){
+			if(!snet){
+			}
+			else{
+			snet = false;
+			if(storageURL != null){
+				storageURL = "https://" + storageURL.substring(snetAddr.length());
+			}
 			}
 		}
 		public boolean usingSnet(){
