@@ -226,7 +226,7 @@ public class FilesClient
         if (response.loginSuccess())
         {
             isLoggedin   = true;
-            if(usingSnet()){
+            if(usingSnet() || envSnet()){
             	storageURL = snetAddr + response.getStorageURL().substring(8);
             }
             else{
@@ -2760,8 +2760,20 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
 		}
 		public void useSnet(){
 			snet = true;
+			if(storageURL != null){
+				storageURL = snetAddr + storageURL.substring(8);
+			}
 		}
 		public boolean usingSnet(){
 			return snet;
+		}
+		private boolean envSnet(){
+			if (System.getenv("snet") == null) {
+				return false;
+			}
+			else{
+				snet = true;
+				return true;
+			}
 		}
 }
