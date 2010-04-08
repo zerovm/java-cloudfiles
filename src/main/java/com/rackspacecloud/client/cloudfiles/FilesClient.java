@@ -99,6 +99,8 @@ public class FilesClient
     private String authToken = null;
     private boolean isLoggedin = false;
     private boolean useETag = true;
+    private boolean snet = false;
+    private String snetAddr = "snet-";
 
     private HttpClient client = new HttpClient(new MultiThreadedHttpConnectionManager());
 
@@ -224,7 +226,12 @@ public class FilesClient
         if (response.loginSuccess())
         {
             isLoggedin   = true;
-            storageURL   = response.getStorageURL();
+            if(usingSnet()){
+            	storageURL   = snetAddr + response.getStorageURL();
+            }
+            else{
+            	storageURL = response.getStorageURL();
+            }
             cdnManagementURL = response.getCDNManagementURL();
             authToken = response.getAuthToken();
             logger.debug("storageURL: " + storageURL);
@@ -2749,5 +2756,12 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
 	    		if (method != null) 
 	    			method.releaseConnection();
 	    	}
+	    	
+		}
+		public void useSnet(){
+			snet = true;
+		}
+		public boolean usingSnet(){
+			return snet;
 		}
 }
