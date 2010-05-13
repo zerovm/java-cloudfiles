@@ -30,10 +30,9 @@ asx 	application/x-mplayer2
 #asx 	video/x-ms-asf-plugin
 au 	audio/basic
 #au 	audio/x-au
-avi 	application/x-troff-msvideo
 #avi 	video/avi
 #avi 	video/msvideo
-#avi 	video/x-msvideo
+avi 	video/x-msvideo
 avs 	video/avs-video
 bcpio 	application/x-bcpio
 #bin 	application/mac-binary
