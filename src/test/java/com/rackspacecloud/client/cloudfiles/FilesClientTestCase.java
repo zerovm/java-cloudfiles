@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import org.apache.commons.httpclient.methods.ByteArrayRequestEntity;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.SystemUtils;
 import org.apache.log4j.Logger;
@@ -82,7 +82,7 @@ public class FilesClientTestCase extends TestCase {
 	}
 	
 	public void testAccountInfo() {
-		String containerName = createTempContainerName("byte-array");
+		String containerName = createTempContainerName("acct-info");
 		String filename = makeFileName("accountinfo");
 		FilesClient client = new FilesClient();
 		try {
@@ -92,6 +92,7 @@ public class FilesClientTestCase extends TestCase {
 			assertFalse(client.containerExists(containerName));
 			
 			// Add it
+			//logger.error(client.getStorageURL());
 			client.createContainer(containerName);
 			
 			// See that it's there
@@ -163,13 +164,16 @@ public class FilesClientTestCase extends TestCase {
 		FilesClient client = new FilesClient();
 		try {
 			assertTrue(client.login());
-			String containerName = createTempContainerName("");
+			String containerName = createTempContainerName("container");
 			
 			// Make sure it's not there
 			assertFalse(client.containerExists(containerName));
 			
 			// Add it
+			//logger.error("Creating the container");
 			client.createContainer(containerName);
+			//logger.error("URL:\n" + client.getStorageURL() + "/" + containerName + "\n");
+			Thread.sleep(10000);
 			
 			// See that it's there
 			assertTrue(client.containerExists(containerName));
@@ -272,6 +276,7 @@ public class FilesClientTestCase extends TestCase {
 			
 
 		} catch (Exception e) {
+			e.printStackTrace();
 			fail(e.getMessage());
 		} 
 	}
@@ -748,6 +753,7 @@ public class FilesClientTestCase extends TestCase {
 			
 		}
 		catch (Exception e) {
+			e.printStackTrace();
 			fail(e.getMessage());
 		}
 		
@@ -804,11 +810,11 @@ public class FilesClientTestCase extends TestCase {
 			FilesClient client = new FilesClient();
 			// client.setUseETag(false);
 			assertTrue(client.login());
-			
+
 			// Set up
 			client.createContainer(containerName);
 			
-			// Store it
+			// Store it 
 			assertTrue(client.storeObject(containerName, randomData, "application/octet-stream", filename, new HashMap<String,String>()));
 			
 			// Make sure it's there
@@ -834,6 +840,7 @@ public class FilesClientTestCase extends TestCase {
 			
 		}
 		catch (Exception e) {
+			logger.error("LGV: LINE NOISE", e);
 			e.printStackTrace();
 			fail(e.getMessage());
 		}		
@@ -851,7 +858,9 @@ public class FilesClientTestCase extends TestCase {
 			client.createContainer(containerName);
 			
 			// Store it
-			ByteArrayRequestEntity entity = new ByteArrayRequestEntity(randomData, "test/content_type");
+			ByteArrayEntity entity = new ByteArrayEntity(randomData);
+			entity.setContentType("test/content_type");
+
 			assertTrue(client.storeObjectAs(containerName, filename, entity, new HashMap<String,String>(), FilesClient.md5Sum(randomData)));
 			
 			// Make sure it's there
@@ -1239,6 +1248,7 @@ public class FilesClientTestCase extends TestCase {
 			List<String> containers = client.listCdnContainers();
 			assertTrue(containers.size() > 0);
 		} catch (Exception e) {
+			e.printStackTrace();
 			fail(e.getMessage());
 		} 
 	}

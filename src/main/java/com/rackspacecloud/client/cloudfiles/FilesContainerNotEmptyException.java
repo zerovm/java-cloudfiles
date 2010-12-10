@@ -3,8 +3,8 @@
  */
 package com.rackspacecloud.client.cloudfiles;
 
-import org.apache.commons.httpclient.Header;
-import org.apache.commons.httpclient.StatusLine;
+import org.apache.http.Header;
+import org.apache.http.StatusLine;
 
 /**
  * @author lvaughn

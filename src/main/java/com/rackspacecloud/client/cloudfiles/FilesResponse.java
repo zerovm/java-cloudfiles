@@ -4,10 +4,12 @@
 
 package com.rackspacecloud.client.cloudfiles;
 
-import org.apache.commons.httpclient.Header;
-import org.apache.commons.httpclient.StatusLine;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.HttpStatus;
+import org.apache.http.Header;
+import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
+import org.apache.http.HttpStatus;
+import org.apache.http.util.EntityUtils;
+import org.apache.http.HttpEntity;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
@@ -15,25 +17,21 @@ import java.io.InputStream;
 
 public class FilesResponse
 {
-    private HttpMethod httpmethod = null;
+    private HttpResponse response = null;
+    private HttpEntity entity = null;
 
     private static Logger logger = Logger.getLogger(FilesResponse.class);
 
     /**
      * @param method The HttpMethod that generated this response
      */
-    public FilesResponse (HttpMethod method)
+    public FilesResponse (HttpResponse response)
     {
-    	httpmethod = method;
-
+    	this.response = response;
+    	entity = response.getEntity();
     	if (logger.isDebugEnabled())
         {
-    		logger.debug ("Request Method: "+method.getName());
-    		logger.debug ("Request Path: " + method.getPath());    
-    		logger.debug ("Status Line: " + getStatusLine());
-    		Header[] reqHeaders = method.getRequestHeaders();
-    		for (Header rH: reqHeaders)
-    			logger.debug(rH.toExternalForm());
+     		logger.debug ("Status Line: " + getStatusLine());
 
     		Header [] responseHeaders = getResponseHeaders();    
     		for (int i=0; i < responseHeaders.length;i++)
@@ -142,7 +140,7 @@ public class FilesResponse
      */
     public Header[] getResponseHeaders()
     {
-        return httpmethod.getResponseHeaders();
+        return response.getAllHeaders();
     }
 
     /**
@@ -152,7 +150,7 @@ public class FilesResponse
      */
     public StatusLine getStatusLine()
     {
-        return httpmethod.getStatusLine();
+        return response.getStatusLine();
     }
 
     /**
@@ -162,7 +160,7 @@ public class FilesResponse
      */
     public int getStatusCode ()
     {
-        return httpmethod.getStatusCode();
+        return response.getStatusLine().getStatusCode();
     }
 
     /**
@@ -172,7 +170,7 @@ public class FilesResponse
      */
     public String getStatusMessage ()
     {
-        return httpmethod.getStatusText();
+        return response.getStatusLine().getReasonPhrase();
     }
 
     /**
@@ -180,10 +178,11 @@ public class FilesResponse
      * 
      * @return The method name
      */
-    public String getMethodName ()
+    /*public String getMethodName ()
     {
-        return httpmethod.getName();
+        return response.getName();
     }
+    */
 
     /**
      * Returns the response body as text
@@ -193,7 +192,7 @@ public class FilesResponse
      */
     public String getResponseBodyAsString () throws IOException
     {
-        return httpmethod.getResponseBodyAsString();
+        return EntityUtils.toString(entity);
     }
 
     /**
@@ -204,7 +203,7 @@ public class FilesResponse
      */
     public InputStream getResponseBodyAsStream () throws IOException
     {
-        return httpmethod.getResponseBodyAsStream();
+        return entity.getContent();
     }
 
     /**
@@ -215,7 +214,7 @@ public class FilesResponse
      */
     public byte[] getResponseBody () throws IOException
     {
-        return httpmethod.getResponseBody();
+        return EntityUtils.toByteArray(entity);
     }
 
     /**
@@ -226,7 +225,7 @@ public class FilesResponse
      */
     public Header getResponseHeader(String headerName)
     {
-        return httpmethod.getResponseHeader(headerName);
+        return response.getFirstHeader(headerName);
     }
 
     /**
@@ -302,6 +301,10 @@ public class FilesResponse
      */
     public Header[] getResponseHeaders(String headerName)
     {
-        return httpmethod.getResponseHeaders(headerName);
+        return response.getHeaders(headerName);
+    }
+    
+    public String getContentEncoding() {
+    	return entity.getContentEncoding().getValue();
     }
 }

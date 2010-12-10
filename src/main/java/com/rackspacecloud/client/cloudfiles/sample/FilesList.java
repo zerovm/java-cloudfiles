@@ -17,7 +17,7 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.lang.StringUtils;
 
 // import org.apache.log4j.Logger;
-import org.apache.commons.httpclient.HttpException;
+import org.apache.http.HttpException;
 
 import com.rackspacecloud.client.cloudfiles.*;
 
@@ -85,10 +85,11 @@ public class FilesList
 			System.err.println( "Please see the logs for more details. Error Message: "+err.getMessage() );
 			err.printStackTrace(System.err);
 		}//catch( ParseException err )
-		catch (FilesException err)
+		catch( HttpException err )
 		{
-			System.err.println( "Please see the logs for more details. Error Message: "+err.getMessage() );                    
-		}//catch (FilesAuthorizationException err)
+			System.err.println( "Please see the logs for more details. Error Message: "+err.getMessage() );
+			err.printStackTrace(System.err);
+		}//catch( ParseException err )
 
 		catch ( IOException err)
 		{

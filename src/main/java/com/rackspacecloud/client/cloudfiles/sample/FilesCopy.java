@@ -8,7 +8,7 @@ import org.apache.commons.cli.*;
 import org.apache.commons.lang.SystemUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.httpclient.HttpException;
+import org.apache.http.HttpException;
 
 import org.apache.log4j.Logger;
 
@@ -234,7 +234,7 @@ public class FilesCopy
 			System.err.println( "Please see the logs for more details. Error Message: "+err.getMessage() );
 		}//catch (FilesAuthorizationException err)
 
-		catch ( IOException err)
+		catch ( Exception err)
 		{
 			logger.fatal("IOException : "+ err);
 			System.err.println( "Please see the logs for more details. Error Message: "+err.getMessage() );

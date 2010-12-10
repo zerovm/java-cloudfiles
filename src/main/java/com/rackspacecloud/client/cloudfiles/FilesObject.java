@@ -5,7 +5,7 @@
 package com.rackspacecloud.client.cloudfiles;
 
 import org.apache.log4j.Logger;
-import org.apache.commons.httpclient.HttpException;
+import org.apache.http.HttpException;
 
 import java.io.*;
 import java.security.NoSuchAlgorithmException;
@@ -299,6 +299,9 @@ public class FilesObject
     	catch (NoSuchAlgorithmException nsae) {
     		// This should never happen
     		logger.fatal("Install doesn't have MD5, can't upload files", nsae);
+    	}
+    	catch (HttpException ex) {
+    		throw new FilesException("Error in network operation", ex);
     	}
     	
 		return result;

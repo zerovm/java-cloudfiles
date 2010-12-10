@@ -4,41 +4,57 @@
 
 package com.rackspacecloud.client.cloudfiles;
 
-import org.apache.log4j.Logger;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.net.URLCodec;
-import org.apache.commons.httpclient.*;
-import org.apache.commons.httpclient.methods.*;
-import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.apache.commons.lang.text.StrTokenizer;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpException;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.utils.URLEncodedUtils;
+import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.FileEntity;
+import org.apache.http.entity.InputStreamEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.protocol.HTTP;
+import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import com.rackspacecloud.client.cloudfiles.wrapper.RequestEntityWrapper;
-
-import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.math.BigInteger;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 
 /**
  * 
@@ -102,7 +118,7 @@ public class FilesClient
     private boolean snet = false;
     private String snetAddr = "https://snet-";
 
-    private HttpClient client = new HttpClient(new MultiThreadedHttpConnectionManager());
+    private HttpClient client = new DefaultHttpClient();
 
     private static Logger logger = Logger.getLogger(FilesClient.class); 
 
@@ -211,17 +227,15 @@ public class FilesClient
      */
     public boolean login() throws IOException, HttpException
     {
-        GetMethod method = new GetMethod(authenticationURL);
-        method.getParams().setSoTimeout(connectionTimeOut);
+        HttpGet method = new HttpGet(authenticationURL);
+        method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
 
-        method.setRequestHeader(FilesUtil.getProperty("auth_user_header", FilesConstants.X_STORAGE_USER_DEFAULT), 
+        method.setHeader(FilesUtil.getProperty("auth_user_header", FilesConstants.X_STORAGE_USER_DEFAULT), 
         		username);
-        method.setRequestHeader(FilesUtil.getProperty("auth_pass_header", FilesConstants.X_STORAGE_PASS_DEFAULT), 
+        method.setHeader(FilesUtil.getProperty("auth_pass_header", FilesConstants.X_STORAGE_PASS_DEFAULT), 
         		password);
 
-        client.executeMethod(method);
-
-        FilesResponse response = new FilesResponse(method);
+        FilesResponse response = new FilesResponse(client.execute(method));
         
         if (response.loginSuccess())
         {
@@ -237,9 +251,9 @@ public class FilesClient
             logger.debug("storageURL: " + storageURL);
             logger.debug("authToken: " + authToken);
             logger.debug("cdnManagementURL:" + cdnManagementURL);
-            logger.debug("ConnectionManager:" + client.getHttpConnectionManager());
+            logger.debug("ConnectionManager:" + client.getConnectionManager());
         }
-        method.releaseConnection();
+        method.abort();
 
         return this.isLoggedin;
     }
@@ -294,33 +308,29 @@ public class FilesClient
     	if (!this.isLoggedin()) {
     		throw new FilesAuthorizationException("You must be logged in", null, null);
     	}
-    	GetMethod method = null;
+    	HttpGet method = null;
     	try {
-    		method = new GetMethod(storageURL);
-    		method.getParams().setSoTimeout(connectionTimeOut);
-    		method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-
     		LinkedList<NameValuePair> parameters = new LinkedList<NameValuePair>();
        		if(limit > 0) {
-    			parameters.add(new NameValuePair("limit", String.valueOf(limit)));
+    			parameters.add(new BasicNameValuePair("limit", String.valueOf(limit)));
     		}
        		if(marker != null) {
-    			parameters.add(new NameValuePair("marker", marker));
+    			parameters.add(new BasicNameValuePair("marker", marker));
     		}
-       		parameters.add(new NameValuePair("format", "xml"));
-       		method.setQueryString(parameters.toArray(new NameValuePair[parameters.size()]));
-			client.executeMethod(method);
-    		FilesResponse response = new FilesResponse(method);
+       		parameters.add(new BasicNameValuePair("format", "xml"));
+        		String uri = makeURI(storageURL, parameters);
+    		method = new HttpGet(uri);
+    		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    		FilesResponse response = new FilesResponse(client.execute(method));
     		
     		if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    			method.removeRequestHeader(FilesConstants.X_AUTH_TOKEN);
+    			method.removeHeaders(FilesConstants.X_AUTH_TOKEN);
     			if(login()) {
-    				method = new GetMethod(storageURL);
-    	    		method.getParams().setSoTimeout(connectionTimeOut);
-    	    		method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    	    		method.setQueryString(parameters.toArray(new NameValuePair[parameters.size()]));
-    				client.executeMethod(method);
-    				response = new FilesResponse(method);
+    				method = new HttpGet(uri);
+    	    		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    	    		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				response = new FilesResponse(client.execute(method));
     			}
     			else {
     				throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -387,7 +397,7 @@ public class FilesClient
     	}
     	finally {
     		if (method != null)
-    			method.releaseConnection();
+    			method.abort();
     	}
     }
 
@@ -440,37 +450,30 @@ public class FilesClient
     	if (!this.isLoggedin()) {
        		throw new FilesAuthorizationException("You must be logged in", null, null);
     	}
-    	GetMethod method = null;
+    	HttpGet method = null;
     	try {
-    		method = new GetMethod(storageURL);
-    		method.getParams().setSoTimeout(connectionTimeOut);
-    		method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);   		
     		LinkedList<NameValuePair> parameters = new LinkedList<NameValuePair>();
     		
        		if(limit > 0) {
-    			parameters.add(new NameValuePair("limit", String.valueOf(limit)));
+    			parameters.add(new BasicNameValuePair("limit", String.valueOf(limit)));
     		}
        		if(marker != null) {
-    			parameters.add(new NameValuePair("marker", marker));
+    			parameters.add(new BasicNameValuePair("marker", marker));
     		}
        		
-       		if (parameters.size() > 0) {
-       			method.setQueryString(parameters.toArray(new NameValuePair[parameters.size()]));
-       		}	
- 			client.executeMethod(method);
-    		FilesResponse response = new FilesResponse(method);
+       		String uri = parameters.size() > 0 ? makeURI(storageURL, parameters) : storageURL;
+    		method = new HttpGet(uri);
+    		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);   		
+    		FilesResponse response = new FilesResponse(client.execute(method));
     		
        		if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    			method.releaseConnection();
+    			method.abort();
     			if(login()) {
-    				method = new GetMethod(storageURL);
-    	    		method.getParams().setSoTimeout(connectionTimeOut);
-    	    		method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    	       		if (parameters.size() > 0) {
-    	       			method.setQueryString(parameters.toArray(new NameValuePair[parameters.size()]));
-    	       		}	
-    				client.executeMethod(method);
-    				response = new FilesResponse(method);
+    				method = new HttpGet(uri);
+    	    		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    	    		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+     				response = new FilesResponse(client.execute(method));
     			}
     			else {
     				throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -480,7 +483,7 @@ public class FilesClient
     		if (response.getStatusCode() == HttpStatus.SC_OK)
     		{
     			// logger.warn(method.getResponseCharSet());
-    			StrTokenizer tokenize = new StrTokenizer(inputStreamToString(response.getResponseBodyAsStream(), method.getResponseCharSet())); 
+    			StrTokenizer tokenize = new StrTokenizer(response.getResponseBodyAsString());
     			tokenize.setDelimiterString("\n");
     			String [] containers = tokenize.getTokenArray();    			
     			ArrayList <FilesContainer> containerList = new ArrayList<FilesContainer>();
@@ -502,10 +505,11 @@ public class FilesClient
     		}
     	}
     	catch (Exception ex) {
+    		ex.printStackTrace();
     		throw new FilesException("Unexpected error, probably parsing Server XML", ex);
     	}
     	finally {
-    		if (method != null) method.releaseConnection();
+    		if (method != null) method.abort();
     	}
     }
 
@@ -524,7 +528,7 @@ public class FilesClient
      * @throws FilesException There was another error in the request to the server.
      * @throws FilesAuthorizationException The client's login was invalid.
      */
-    public List<FilesObject> listObjectsStartingWith (String container, String startsWith, String path, int limit, String marker) throws IOException, HttpException, FilesException
+    public List<FilesObject> listObjectsStartingWith (String container, String startsWith, String path, int limit, String marker) throws IOException, FilesException
     {
     	if (!this.isLoggedin()) {
        		throw new FilesAuthorizationException("You must be logged in", null, null);
@@ -532,44 +536,36 @@ public class FilesClient
     	if (!isValidContainerName(container))  {
     		throw new FilesInvalidNameException(container);
     	}
-    	GetMethod method = null;
-    	try {
-    		method = new GetMethod(storageURL+"/"+sanitizeForURI(container));
-    		method.getParams().setSoTimeout(connectionTimeOut);
-    		method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    		
+    	HttpGet method = null;
+    	try {    		
     		LinkedList<NameValuePair> parameters = new LinkedList<NameValuePair>();
-    		parameters.add(new NameValuePair ("format", "xml"));
+    		parameters.add(new BasicNameValuePair ("format", "xml"));
     		if (startsWith != null) {
-    			parameters.add(new NameValuePair (FilesConstants.LIST_CONTAINER_NAME_QUERY, startsWith));
+    			parameters.add(new BasicNameValuePair (FilesConstants.LIST_CONTAINER_NAME_QUERY, startsWith));
     		}
        		if(path != null) {
-    			parameters.add(new NameValuePair("path", path));
+    			parameters.add(new BasicNameValuePair("path", path));
     		}
        		if(limit > 0) {
-    			parameters.add(new NameValuePair("limit", String.valueOf(limit)));
+    			parameters.add(new BasicNameValuePair("limit", String.valueOf(limit)));
     		}
        		if(marker != null) {
-    			parameters.add(new NameValuePair("marker", marker));
+    			parameters.add(new BasicNameValuePair("marker", marker));
     		}
        		
-       		if (parameters.size() > 0) {
-       			method.setQueryString(parameters.toArray(new NameValuePair[parameters.size()]));
-       		}
-			client.executeMethod(method);
-    		FilesResponse response = new FilesResponse(method);
+       		String uri = parameters.size() > 0 ? makeURI(storageURL+"/"+sanitizeForURI(container), parameters) : storageURL;
+       		method = new HttpGet(uri);
+    		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+   		FilesResponse response = new FilesResponse(client.execute(method));
     		
        		if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    			method.removeRequestHeader(FilesConstants.X_AUTH_TOKEN);
+    			method.removeHeaders(FilesConstants.X_AUTH_TOKEN);
     			if(login()) {
-    				method = new GetMethod(storageURL+"/"+sanitizeForURI(container));
-    	    		method.getParams().setSoTimeout(connectionTimeOut);
-    	    		method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    	       		if (parameters.size() > 0) {
-    	       			method.setQueryString(parameters.toArray(new NameValuePair[parameters.size()]));
-    	       		}	
-    				client.executeMethod(method);
-    				response = new FilesResponse(method);
+    				method = new HttpGet(uri);
+    	    		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    	    		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+     				response = new FilesResponse(client.execute(method));
     			}
     			else {
     				throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -644,12 +640,15 @@ public class FilesClient
     			throw new FilesException("Unexpected Server Result", response.getResponseHeaders(), response.getStatusLine());
     		}
     	}
+    	catch (FilesNotFoundException fnfe) {
+    		throw fnfe;
+    	}
     	catch (Exception ex) {
     		logger.error("Error parsing xml", ex);
     		throw new FilesException("Error parsing server resposne", ex);
     	}
     	finally {
-    		if (method != null) method.releaseConnection();
+    		if (method != null) method.abort();
     	}
     }
 
@@ -664,7 +663,7 @@ public class FilesClient
      * @throws FilesException There was another error in the request to the server.
      * @throws FilesAuthorizationException The client's login was invalid.
      */
-    public List<FilesObject> listObjects(String container) throws IOException, HttpException, FilesAuthorizationException, FilesException {
+    public List<FilesObject> listObjects(String container) throws IOException, FilesAuthorizationException, FilesException {
     	return listObjectsStartingWith(container, null, null, -1, null);
     }
 
@@ -784,24 +783,21 @@ public class FilesClient
    public FilesAccountInfo getAccountInfo() throws IOException, HttpException, FilesAuthorizationException, FilesException
    {
     	if (this.isLoggedin()) {
-    		HeadMethod method = null;
+    		HttpHead method = null;
 
     		try {
-    			method = new HeadMethod(storageURL);
-    			method.getParams().setSoTimeout(connectionTimeOut);
-    			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    			client.executeMethod(method);
-
-    			FilesResponse response = new FilesResponse(method);
+    			method = new HttpHead(storageURL);
+    			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			FilesResponse response = new FilesResponse(client.execute(method));
     			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    				method.removeRequestHeader(FilesConstants.X_AUTH_TOKEN);
+    				method.removeHeaders(FilesConstants.X_AUTH_TOKEN);
     				if(login()) {
-    					method.releaseConnection();
-    					method = new HeadMethod(storageURL);
-    					method.getParams().setSoTimeout(connectionTimeOut);
-    					method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    					client.executeMethod(method);
-    					response = new FilesResponse(method);
+    					method.abort();
+    					method = new HttpHead(storageURL);
+    					method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    					method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    					response = new FilesResponse(client.execute(method));
     				}
     				else {
     					throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -819,7 +815,7 @@ public class FilesClient
     			}
     		}
     		finally {
-    			if (method != null) method.releaseConnection();
+    			if (method != null) method.abort();
     		}
     	}
     	else {
@@ -844,23 +840,20 @@ public class FilesClient
     		if (isValidContainerName(container))
     		{
 
-    			HeadMethod method = null;
+    			HttpHead method = null;
     			try {
-    				method = new HeadMethod(storageURL+"/"+sanitizeForURI(container));
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    				client.executeMethod(method);
-
-    				FilesResponse response = new FilesResponse(method);
+    				method = new HttpHead(storageURL+"/"+sanitizeForURI(container));
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				FilesResponse response = new FilesResponse(client.execute(method));
 
     				if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    					method.removeRequestHeader(FilesConstants.X_AUTH_TOKEN);
+    					method.removeHeaders(FilesConstants.X_AUTH_TOKEN);
     					if(login()) {
-    						method = new HeadMethod(storageURL+"/"+sanitizeForURI(container));
-    						method.getParams().setSoTimeout(connectionTimeOut);
-    						method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    						client.executeMethod(method);
-    						response = new FilesResponse(method);
+    						method = new HttpHead(storageURL+"/"+sanitizeForURI(container));
+    						method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    						method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+     						response = new FilesResponse(client.execute(method));
     					}
     					else {
     						throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -882,7 +875,7 @@ public class FilesClient
     				}
     			}
     			finally {
-    				if (method != null) method.releaseConnection();
+    				if (method != null) method.abort();
     			}
     		}
     		else
@@ -910,23 +903,20 @@ public class FilesClient
     	{
     		if (isValidContainerName(name))
     		{
-    			PutMethod method = new PutMethod(storageURL+"/"+sanitizeForURI(name));
-    			method.getParams().setSoTimeout(connectionTimeOut);
-    			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			HttpPut method = new HttpPut(storageURL+"/"+sanitizeForURI(name));
+    			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     			
     			try {
-    				client.executeMethod(method);
-
-    				FilesResponse response = new FilesResponse(method);    	
+    				FilesResponse response = new FilesResponse(client.execute(method));    	
     				
     	       		if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    	       			method.releaseConnection();
+    	       			method.abort();
     	    			if(login()) {
-    	    	   			method = new PutMethod(storageURL+"/"+sanitizeForURI(name));
-    	        			method.getParams().setSoTimeout(connectionTimeOut);
-    	        			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    	    				client.executeMethod(method);
-    	    				response = new FilesResponse(method);
+    	    	   			method = new HttpPut(storageURL+"/"+sanitizeForURI(name));
+    	        			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    	        			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    	    				response = new FilesResponse(client.execute(method));
     	    			}
     	    			else {
     	    				throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -946,7 +936,7 @@ public class FilesClient
 	    			}
     			}
     			finally {
-    				method.releaseConnection();
+    				method.abort();
     			}
     		}
     		else
@@ -976,21 +966,19 @@ public class FilesClient
     	{
     		if (isValidContainerName(name))
     		{
-    			DeleteMethod method = new DeleteMethod(storageURL+"/"+sanitizeForURI(name));
+    			HttpDelete method = new HttpDelete(storageURL+"/"+sanitizeForURI(name));
     			try {
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    	   			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-        			client.executeMethod(method);
-        			FilesResponse response = new FilesResponse(method);
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    	   			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+        			FilesResponse response = new FilesResponse(client.execute(method));
 
     	       		if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    	       			method.releaseConnection();
+    	       			method.abort();
     	    			if(login()) {
-    	    	   			method = new DeleteMethod(storageURL+"/"+sanitizeForURI(name));
-    	    				method.getParams().setSoTimeout(connectionTimeOut);
-    	    	   			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    	        			client.executeMethod(method);
-    	    				response = new FilesResponse(method);
+    	    	   			method = new HttpDelete(storageURL+"/"+sanitizeForURI(name));
+    	    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    	    	   			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    	    				response = new FilesResponse(client.execute(method));
     	    			}
     	    			else {
     	    				throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -1014,7 +1002,7 @@ public class FilesClient
         			}
     			}
     			finally {
-    				method.releaseConnection();
+    				method.abort();
     			}
     		}
     		else
@@ -1045,23 +1033,20 @@ public class FilesClient
     	{
     		if (isValidContainerName(name))
     		{
-    			PutMethod method = null;
+    			HttpPut method = null;
     			try {
-    				method = new PutMethod(cdnManagementURL+"/"+sanitizeForURI(name));
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    				client.executeMethod(method);
-
-    				FilesResponse response = new FilesResponse(method);
+    				method = new HttpPut(cdnManagementURL+"/"+sanitizeForURI(name));
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				FilesResponse response = new FilesResponse(client.execute(method));
 
     				if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    					method.releaseConnection();
+    					method.abort();
     					if(login()) {
-    						method = new PutMethod(cdnManagementURL+"/"+sanitizeForURI(name));
-    						method.getParams().setSoTimeout(connectionTimeOut);
-    						method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    						client.executeMethod(method);
-    						response = new FilesResponse(method);
+    						method = new HttpPut(cdnManagementURL+"/"+sanitizeForURI(name));
+    						method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    						method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    						response = new FilesResponse(client.execute(method));
     					}
     					else {
     						throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -1081,7 +1066,7 @@ public class FilesClient
     				}
     			}
     			finally	{
-    				method.releaseConnection();
+    				method.abort();
     			}
     		}
     		else
@@ -1126,50 +1111,46 @@ public class FilesClient
     	{
     		if (isValidContainerName(name))
     		{
-    			PostMethod method = null;
+    			HttpPost method = null;
     			try {
-    				method = new PostMethod(cdnManagementURL+"/"+sanitizeForURI(name));
+    				method = new HttpPost(cdnManagementURL+"/"+sanitizeForURI(name));
 
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     				// TTL
     				if (ttl > 0) {
-    					method.setRequestHeader(FilesConstants.X_CDN_TTL, Integer.toString(ttl));
+    					method.setHeader(FilesConstants.X_CDN_TTL, Integer.toString(ttl));
     				}
        				// Enabled
-    				method.setRequestHeader(FilesConstants.X_CDN_ENABLED, Boolean.toString(enabled));
+    				method.setHeader(FilesConstants.X_CDN_ENABLED, Boolean.toString(enabled));
 
     				// Log Retention
-    				method.setRequestHeader(FilesConstants.X_CDN_RETAIN_LOGS, Boolean.toString(retainLogs));
+    				method.setHeader(FilesConstants.X_CDN_RETAIN_LOGS, Boolean.toString(retainLogs));
 
     				// Referrer ACL
     				if(referrerAcl != null) {
-    					method.setRequestHeader(FilesConstants.X_CDN_REFERRER_ACL, referrerAcl);
+    					method.setHeader(FilesConstants.X_CDN_REFERRER_ACL, referrerAcl);
     				}
 
     				// User Agent ACL
     				if(userAgentACL != null) {
-    					method.setRequestHeader(FilesConstants.X_CDN_USER_AGENT_ACL, userAgentACL);
+    					method.setHeader(FilesConstants.X_CDN_USER_AGENT_ACL, userAgentACL);
     				}
-    				client.executeMethod(method);
-
-    				FilesResponse response = new FilesResponse(method);
+     				FilesResponse response = new FilesResponse(client.execute(method));
 
     				if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    					method.releaseConnection();
+    					method.abort();
     					if(login()) {
-    						new PostMethod(cdnManagementURL+"/"+sanitizeForURI(name));
-    						method.getParams().setSoTimeout(connectionTimeOut);
-    						method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    						new HttpPost(cdnManagementURL+"/"+sanitizeForURI(name));
+    						method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    						method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     						// TTL
     						if (ttl > 0) {
-    							method.setRequestHeader(FilesConstants.X_CDN_TTL, Integer.toString(ttl));
+    							method.setHeader(FilesConstants.X_CDN_TTL, Integer.toString(ttl));
     						}
     						// Enabled
-    						method.setRequestHeader(FilesConstants.X_CDN_ENABLED, Boolean.toString(enabled));
-
-    						client.executeMethod(method);						
-    						response = new FilesResponse(method);
+    						method.setHeader(FilesConstants.X_CDN_ENABLED, Boolean.toString(enabled));					
+    						response = new FilesResponse(client.execute(method));
     					}
     					else {
     						throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -1189,7 +1170,7 @@ public class FilesClient
     				}
     			} finally {
     				if (method != null) {
-    					method.releaseConnection();
+    					method.abort();
     				}
     			}
     		}
@@ -1220,23 +1201,20 @@ public class FilesClient
     	if (isLoggedin()) {
     		if (isValidContainerName(container))
     		{
-    			HeadMethod method = null;
+    			HttpHead method = null;
     			try {
-    				method= new HeadMethod(cdnManagementURL+"/"+sanitizeForURI(container));
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    				client.executeMethod(method);
-
-    				FilesResponse response = new FilesResponse(method);
+    				method= new HttpHead(cdnManagementURL+"/"+sanitizeForURI(container));
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				FilesResponse response = new FilesResponse(client.execute(method));
 
     				if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    					method.releaseConnection();
+    					method.abort();
     					if(login()) {
-    						method= new HeadMethod(cdnManagementURL+"/"+sanitizeForURI(container));
-    						method.getParams().setSoTimeout(connectionTimeOut);
-    						method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    						client.executeMethod(method);
-    						response = new FilesResponse(method);
+    						method= new HttpHead(cdnManagementURL+"/"+sanitizeForURI(container));
+    						method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    						method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+     						response = new FilesResponse(client.execute(method));
     					}
     					else {
     						throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -1281,7 +1259,7 @@ public class FilesClient
     			}
     			finally {
     				if (method != null) {
-    					method.releaseConnection();
+    					method.abort();
     				}
     			}
     		}
@@ -1310,23 +1288,20 @@ public class FilesClient
     	if (isLoggedin()) {
     		if (isValidContainerName(container))
     		{
-    			HeadMethod method = null;
+    			HttpHead method = null;
     			try {
-    				method= new HeadMethod(cdnManagementURL+"/"+sanitizeForURI(container));
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    				client.executeMethod(method);
-
-    				FilesResponse response = new FilesResponse(method);
+    				method= new HttpHead(cdnManagementURL+"/"+sanitizeForURI(container));
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				FilesResponse response = new FilesResponse(client.execute(method));
 
     				if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    					method.releaseConnection();
+    					method.abort();
     					if(login()) {
-    						method= new HeadMethod(cdnManagementURL+"/"+sanitizeForURI(container));
-    						method.getParams().setSoTimeout(connectionTimeOut);
-    						method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    						client.executeMethod(method);
-    						response = new FilesResponse(method);
+    						method= new HttpHead(cdnManagementURL+"/"+sanitizeForURI(container));
+    						method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    						method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    						response = new FilesResponse(client.execute(method));
     					}
     					else {
     						throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -1357,7 +1332,7 @@ public class FilesClient
     			}
     			finally {
     				if (method != null) {
-    					method.releaseConnection();
+    					method.abort();
     				}
     			}
     		}
@@ -1476,35 +1451,28 @@ public class FilesClient
     {
     	if (this.isLoggedin())
     	{
-    		GetMethod method = null;
+    		HttpGet method = null;
     		try {
-    			method = new GetMethod(cdnManagementURL);
-    			method.getParams().setSoTimeout(connectionTimeOut);
-    			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    			LinkedList<NameValuePair> params = new LinkedList<NameValuePair>();
+     			LinkedList<NameValuePair> params = new LinkedList<NameValuePair>();
     			if (limit > 0) {
-    				params.add(new NameValuePair("limit", String.valueOf(limit)));
+    				params.add(new BasicNameValuePair("limit", String.valueOf(limit)));
     			}
     			if (marker != null) {
-    				params.add(new NameValuePair("marker", marker));
+    				params.add(new BasicNameValuePair("marker", marker));
     			}
-    			if (params.size() > 0) { 
-    				method.setQueryString(params.toArray(new NameValuePair[params.size()]));
-    			}
-    			client.executeMethod(method);
-    			FilesResponse response = new FilesResponse(method);
+    			String uri = (params.size() > 0) ? makeURI(cdnManagementURL, params) : cdnManagementURL;
+       			method = new HttpGet(uri);
+    			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			FilesResponse response = new FilesResponse(client.execute(method));
 
     			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    				method.releaseConnection();
+    				method.abort();
     				if(login()) {
-    					method = new GetMethod(cdnManagementURL);
-    					method.getParams().setSoTimeout(connectionTimeOut);
-    					method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    	    			if (params.size() > 0) { 
-    	    				method.setQueryString(params.toArray(new NameValuePair[params.size()]));
-    	    			}
-    					client.executeMethod(method);
-    					response = new FilesResponse(method);
+    					method = new HttpGet(uri);
+    					method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    					method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    					response = new FilesResponse(client.execute(method));
     				}
     				else {
     					throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -1513,7 +1481,7 @@ public class FilesClient
 
     			if (response.getStatusCode() == HttpStatus.SC_OK)
     			{
-    				StrTokenizer tokenize = new StrTokenizer(inputStreamToString(response.getResponseBodyAsStream(), method.getResponseCharSet()));
+    				StrTokenizer tokenize = new StrTokenizer(response.getResponseBodyAsString());
     				tokenize.setDelimiterString("\n");
     				String [] containers = tokenize.getTokenArray();
     				List<String> returnValue = new ArrayList<String>();
@@ -1532,7 +1500,7 @@ public class FilesClient
     			}
     		}
     		finally {
-    			if (method != null) method.releaseConnection();
+    			if (method != null) method.abort();
     		}
     	}
     	else {
@@ -1582,34 +1550,31 @@ public class FilesClient
     {
     	if (this.isLoggedin())
     	{
-    		GetMethod method = null;
+    		HttpGet method = null;
     		try {
-    			method = new GetMethod(cdnManagementURL);
-    			method.getParams().setSoTimeout(connectionTimeOut);
-    			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     			LinkedList<NameValuePair> params = new LinkedList<NameValuePair>();
-    			params.add(new NameValuePair("format", "xml"));
+    			params.add(new BasicNameValuePair("format", "xml"));
     			if (limit > 0) {
-    				params.add(new NameValuePair("limit", String.valueOf(limit)));
+    				params.add(new BasicNameValuePair("limit", String.valueOf(limit)));
     			}
     			if (marker != null) {
-    				params.add(new NameValuePair("marker", marker));
+    				params.add(new BasicNameValuePair("marker", marker));
     			}
-    			method.setQueryString(params.toArray(new NameValuePair[params.size()]));
+    			String uri = params.size() > 0 ? makeURI(cdnManagementURL, params) : cdnManagementURL;
+    			method = new HttpGet(uri);
+    			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     		
-    			client.executeMethod(method);
-    			FilesResponse response = new FilesResponse(method);
+    			FilesResponse response = new FilesResponse(client.execute(method));
 
     			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    				method.releaseConnection();
+    				method.abort();
     				if(login()) {
-    					method = new GetMethod(cdnManagementURL);
-    					method.getParams().setSoTimeout(connectionTimeOut);
-    					method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    					method.setQueryString(params.toArray(new NameValuePair[params.size()]));
+    					method = new HttpGet(uri);
+    					method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    					method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     	    			
-    					client.executeMethod(method);
-    					response = new FilesResponse(method);
+    					response = new FilesResponse(client.execute(method));
     				}
     				else {
     					throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -1685,7 +1650,7 @@ public class FilesClient
     			throw new FilesException("Problem parsing XML", ex);
     		}
     		finally {
-    			if (method != null) method.releaseConnection();
+    			if (method != null) method.abort();
     		}
     	}
     	else {
@@ -1771,36 +1736,34 @@ public class FilesClient
     				throw new IOException("The alleged file was a directory");				
     			}
 
-    			PutMethod method = null;
+    			HttpPut method = null;
     			try {
-    				method = new PutMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(name));
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				method = new HttpPut(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(name));
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     				if (useETag) {
-    					method.setRequestHeader(FilesConstants.E_TAG, md5Sum (obj));
+    					method.setHeader(FilesConstants.E_TAG, md5Sum (obj));
     				}
-    				method.setRequestEntity( new RequestEntityWrapper(new FileRequestEntity (obj, contentType), callback));
+    				method.setEntity( new RequestEntityWrapper(new FileEntity (obj, contentType), callback));
     				for(String key : metadata.keySet()) {
-    					method.setRequestHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
+    					method.setHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
     				}
-    				client.executeMethod(method);
-    				FilesResponse response = new FilesResponse(method);
+    				FilesResponse response = new FilesResponse(client.execute(method));
     				
     				if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    	       			method.releaseConnection();
+    	       			method.abort();
     	    			if(login()) {
-    	    				method = new PutMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(name));
-    	    				method.getParams().setSoTimeout(connectionTimeOut);
-    	    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    	    				method = new HttpPut(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(name));
+    	    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    	    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     	    				if (useETag) {
-    	    					method.setRequestHeader(FilesConstants.E_TAG, md5Sum (obj));
+    	    					method.setHeader(FilesConstants.E_TAG, md5Sum (obj));
     	    				}
-    	    				method.setRequestEntity( new RequestEntityWrapper(new FileRequestEntity (obj, contentType), callback));
+    	    				method.setEntity( new RequestEntityWrapper(new FileEntity (obj, contentType), callback));
     	    				for(String key : metadata.keySet()) {
-    	    					method.setRequestHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
+    	    					method.setHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
     	    				}
-    	    				client.executeMethod(method);
-    	    				response = new FilesResponse(method);
+    	    				response = new FilesResponse(client.execute(method));
     	    			}
     	    			else {
     	    				throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -1824,7 +1787,7 @@ public class FilesClient
     				}
     			}
     			finally {
-    				if (method != null) method.releaseConnection();
+    				if (method != null) method.abort();
     			}
     		}
     		else
@@ -1896,37 +1859,40 @@ public class FilesClient
     		if (isValidContainerName(container) && isValidObjectName(objName))
     		{
 
-    			PutMethod method = null;
+    			HttpPut method = null;
     			try {
-    				method = new PutMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				method = new HttpPut(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     				if (useETag) {
-    					method.setRequestHeader(FilesConstants.E_TAG, md5Sum (obj));
+    					method.setHeader(FilesConstants.E_TAG, md5Sum (obj));
     				}
-    				method.setRequestEntity(new RequestEntityWrapper(new ByteArrayRequestEntity (obj, contentType), callback));
+    				ByteArrayEntity entity = new ByteArrayEntity (obj);
+    				entity.setContentType(contentType);
+    				method.setEntity(new RequestEntityWrapper(entity, callback));
     				for(String key : metadata.keySet()) {
     					// logger.warn("Key:" + key + ":" + sanitizeForURI(metadata.get(key)));
-    					method.setRequestHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
+    					method.setHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
     				}
-    				client.executeMethod(method);
-    				FilesResponse response = new FilesResponse(method);
+    				
+    				FilesResponse response = new FilesResponse(client.execute(method));
 
     				if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-    					method.releaseConnection();
+    					method.abort();
     					if(login()) {
-    						method = new PutMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-    						method.getParams().setSoTimeout(connectionTimeOut);
-    						method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    						method = new HttpPut(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+    						method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    						method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
     						if (useETag) {
-    							method.setRequestHeader(FilesConstants.E_TAG, md5Sum (obj));
+    							method.setHeader(FilesConstants.E_TAG, md5Sum (obj));
     						}
-    						method.setRequestEntity(new RequestEntityWrapper(new ByteArrayRequestEntity (obj, contentType), callback));
+    		   				entity = new ByteArrayEntity (obj);
+    	    				entity.setContentType(contentType);
+    						method.setEntity(new RequestEntityWrapper(entity, callback));
     						for(String key : metadata.keySet()) {
-    							method.setRequestHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
+    							method.setHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
     						}
-    						client.executeMethod(method);
-    						response = new FilesResponse(method);
+    						response = new FilesResponse(client.execute(method));
     					}
     					else {
     						throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
@@ -1951,7 +1917,7 @@ public class FilesClient
     				}
     			}
     			finally{
-    				if (method != null) method.releaseConnection();
+    				if (method != null) method.abort();
     			}
     		}
     		else
@@ -1991,20 +1957,22 @@ public class FilesClient
 			String objName	 =  name;
 			if (isValidContainerName(container) && isValidObjectName(objName))
     		{
-    			PutMethod method = new PutMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-    			method.setContentChunked(true);
-    			method.getParams().setSoTimeout(connectionTimeOut);
-    			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    			method.setRequestEntity(new InputStreamRequestEntity(data, contentType));
+				HttpPut method = new HttpPut(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+     			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			InputStreamEntity entity = new InputStreamEntity(data, -1);
+    			entity.setChunked(true);
+    			entity.setContentType(contentType);
+    			method.setEntity(entity);
     			for(String key : metadata.keySet()) {
     				// logger.warn("Key:" + key + ":" + sanitizeForURI(metadata.get(key)));
-    				method.setRequestHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
+    				method.setHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
     			}
-    			method.removeRequestHeader("Content-Length");
+    			method.removeHeaders("Content-Length");
+  
     			
     			try {
-    				client.executeMethod(method);
-        			FilesResponse response = new FilesResponse(method);
+        			FilesResponse response = new FilesResponse(client.execute(method));
         			
         			if (response.getStatusCode() == HttpStatus.SC_CREATED)
         			{
@@ -2017,7 +1985,7 @@ public class FilesClient
         			}
     			}
     			finally {	
-    				method.releaseConnection();
+    				method.abort();
     			}
     		}
     		else
@@ -2048,42 +2016,40 @@ public class FilesClient
     * @throws HttpException There was a protocol level error talking to CloudFiles
     * @throws FilesException There was an error talking to CloudFiles.
     */
-public boolean storeObjectAs(String container, String name, RequestEntity entity, Map<String,String> metadata, String md5sum) throws IOException, HttpException, FilesException
+public boolean storeObjectAs(String container, String name, HttpEntity entity, Map<String,String> metadata, String md5sum) throws IOException, HttpException, FilesException
     {
     	if (this.isLoggedin())
     	{
 			String objName	 =  name;
 			if (isValidContainerName(container) && isValidObjectName(objName))
     		{
-    			PutMethod method = new PutMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-    			method.getParams().setSoTimeout(connectionTimeOut);
-    			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    			method.setRequestEntity(entity);
+				HttpPut method = new HttpPut(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+    			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			method.setEntity(entity);
    				if (useETag && md5sum != null) {
-					method.setRequestHeader(FilesConstants.E_TAG, md5sum);
+					method.setHeader(FilesConstants.E_TAG, md5sum);
    				}
-    			method.setRequestHeader("Content-Type", entity.getContentType());
+    			method.setHeader(entity.getContentType());
     
     			for(String key : metadata.keySet()) {
-    				method.setRequestHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
+    				method.setHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
     			}
     			
     			try {
-    				client.executeMethod(method);
-        			FilesResponse response = new FilesResponse(method);
+        			FilesResponse response = new FilesResponse(client.execute(method));
         			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-        				method.releaseConnection();
+        				method.abort();
         				login();
-        				method = new PutMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-            			method.getParams().setSoTimeout(connectionTimeOut);
-            			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-            			method.setRequestEntity(entity);
-            			method.setRequestHeader("Content-Type", entity.getContentType());
+        				method = new HttpPut(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+            			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+            			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+            			method.setEntity(entity);
+            			method.setHeader(entity.getContentType());
             			for(String key : metadata.keySet()) {
-            				method.setRequestHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
+            				method.setHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
             			}
-            			client.executeMethod(method);
-            			response = new FilesResponse(method);
+            			response = new FilesResponse(client.execute(method));
         			}
         			
         			if (response.getStatusCode() == HttpStatus.SC_CREATED)
@@ -2097,7 +2063,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
         			}
     			}
     			finally {	
-    				method.releaseConnection();
+    				method.abort();
     			}
     		}
     		else
@@ -2131,23 +2097,21 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     	{
     		if (isValidContainerName(container) && isValidObjectName(objName))
     		{
-    			DeleteMethod method = null;
+    			HttpDelete method = null;
     			try {
-    				method = new DeleteMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    				client.executeMethod(method);
-    				FilesResponse response = new FilesResponse(method);
+    				method = new HttpDelete(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				FilesResponse response = new FilesResponse(client.execute(method));
     				
            			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-           				method.releaseConnection();
+           				method.abort();
         				login();
-           				method = new DeleteMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-            			method.getParams().setSoTimeout(connectionTimeOut);
-        				method.getParams().setSoTimeout(connectionTimeOut);
-        				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-        				client.executeMethod(method);
-        				response = new FilesResponse(method);
+           				method = new HttpDelete(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+            			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+        				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+        				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+        				response = new FilesResponse(client.execute(method));
         			}
 
 
@@ -2164,7 +2128,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     				}
     			}
     			finally {
-    				if (method != null) method.releaseConnection();
+    				if (method != null) method.abort();
     			}
     		}
     		else
@@ -2201,21 +2165,18 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     	{
     		if (isValidContainerName(container) && isValidObjectName(objName))
     		{
-    			HeadMethod method = new HeadMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+    			HttpHead method = new HttpHead(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
     			try {
-    				method.getParams().setSoTimeout(connectionTimeOut);
-    				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    				client.executeMethod(method);
-
-    				FilesResponse response = new FilesResponse(method);
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    				FilesResponse response = new FilesResponse(client.execute(method));
    				
            			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-           				method.releaseConnection();
+           				method.abort();
         				login();
-           				method.getParams().setSoTimeout(connectionTimeOut);
-        				method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-        				client.executeMethod(method);
-        				response = new FilesResponse(method);
+           				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+        				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+        				response = new FilesResponse(client.execute(method));
         			}
 
            			if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT ||
@@ -2255,7 +2216,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     				}
     			}
     			finally {
-    				method.releaseConnection();
+    				method.abort();
     			}
     		}
     		else
@@ -2292,15 +2253,12 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     	{
     		if (isValidContainerName(container) && isValidObjectName(objName))
     		{
-    			GetMethod method = new GetMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-    			method.getParams().setSoTimeout(connectionTimeOut);
-    			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			HttpGet method = new HttpGet(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+    			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
 
     			try {
-    				client.executeMethod(method);
-    	
-
-    				FilesResponse response = new FilesResponse(method);
+    				FilesResponse response = new FilesResponse(client.execute(method));
 
     				if (response.getStatusCode() == HttpStatus.SC_OK)
     				{	
@@ -2314,7 +2272,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     				}
     			}
     			finally {
-    				method.releaseConnection();
+    				method.abort();
     			}
     		}
     		else
@@ -2358,20 +2316,18 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     				logger.warn ("Truncated Object Name is: " + objName);
     			}
 
-    			GetMethod method = new GetMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-    			method.getParams().setSoTimeout(connectionTimeOut);
-    			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    			client.executeMethod(method);
-    			FilesResponse response = new FilesResponse(method);
+    			HttpGet method = new HttpGet(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+    			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			FilesResponse response = new FilesResponse(client.execute(method));
 
       			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-       				method.releaseConnection();
+       				method.abort();
     				login();
-    				method = new GetMethod(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
-        			method.getParams().setSoTimeout(connectionTimeOut);
-        			method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-        			client.executeMethod(method);
-        			response = new FilesResponse(method);
+    				method = new HttpGet(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+        			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+        			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+        			response = new FilesResponse(client.execute(method));
     			}
 
       			if (response.getStatusCode() == HttpStatus.SC_OK)
@@ -2382,7 +2338,7 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     			}
     			else if (response.getStatusCode() == HttpStatus.SC_NOT_FOUND)
     			{
-    				method.releaseConnection();
+    				method.abort();
 					throw new FilesNotFoundException("Container: " + container + " did not have object " + objName, 
 							 response.getResponseHeaders(), response.getStatusLine());
     			}
@@ -2664,11 +2620,11 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
 	}
 	
 	public void setUserAgent(String userAgent) {
-		client.getParams().setParameter(HttpMethodParams.USER_AGENT, userAgent);
+		client.getParams().setParameter(HTTP.USER_AGENT, userAgent);
 	}
 	
 	public String getUserAgent() {
-		return client.getParams().getParameter(HttpMethodParams.USER_AGENT).toString();
+		return client.getParams().getParameter(HTTP.USER_AGENT).toString();
 	}
 	
 	private boolean isValidContainerName(String name) {
@@ -2698,36 +2654,31 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
     /**
      * @param config
      */
-    public void setHostConfiguration(HostConfiguration config) {
-        client.setHostConfiguration(config);
-    }
-	private HttpMethod doUpdateObjectMetadata(String container, 
+    /*public void setHostConfiguration(HostConfiguration config) {
+        client.setHostConfiguration(config);  
+    } */
+	private HttpResponse doUpdateObjectMetadata(String container, 
 			String object, Map<String,String> metadata) 
 			throws HttpException, IOException {
-			HttpClient httpClient;
-			PostMethod method;
+			HttpPost method;
 			
-	    	method = new PostMethod(storageURL +
+	    	method = new HttpPost(storageURL +
 	    		"/"+FilesClient.sanitizeForURI(container)+
 	    		"/"+FilesClient.sanitizeForURI(object));
-	   		method.getParams().setSoTimeout(connectionTimeOut);
-	   		method.setRequestHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+	   		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+	   		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
 	   		if (!(metadata == null || metadata.isEmpty())) {
 	   			for(String key:metadata.keySet())
-	   				method.setRequestHeader(FilesConstants.X_OBJECT_META+key, 
+	   				method.setHeader(FilesConstants.X_OBJECT_META+key, 
 	   					FilesClient.sanitizeForURI(metadata.get(key)));
 	   		}
-			
-	   		httpClient = new HttpClient();
-	   		httpClient.executeMethod(method);
 
-	   		return method;
+	   		return client.execute(method);
 		}
-		
+
 		public boolean updateObjectMetadata(String container, String object, 
 			Map<String,String> metadata) throws FilesAuthorizationException, 
 			HttpException, IOException, FilesInvalidNameException {
-			HttpMethod method;
 			FilesResponse response;
 			
 	    	if (!isLoggedin) {
@@ -2740,24 +2691,49 @@ public boolean storeObjectAs(String container, String name, RequestEntity entity
 	    	if (!isValidObjectName(object))
 				throw new FilesInvalidNameException(object);
 	    	
-	    	method = null;
 	    	try {
-	    		method = doUpdateObjectMetadata(container, object, metadata);
-	    		response = new FilesResponse(method);
+	    		HttpResponse resp = doUpdateObjectMetadata(container, object, metadata);
+	    		response = new FilesResponse(resp);
 	    		if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-	    			method.releaseConnection();
+	    			// method.abort(); TODO:  Update this
 	    			if(login()) {
-	    				method = doUpdateObjectMetadata(container, object, metadata);
+	    				doUpdateObjectMetadata(container, object, metadata);
 	    			}
 	    		}
 	    		
 	    		return true;
 	    	} finally {
-	    		if (method != null) 
-	    			method.releaseConnection();
+	    		//if (method != null) 
+	    		//	method.abort(); //TODO:  Update this
 	    	}
 	    	
 		}
+		
+		private String makeURI(String base, List<NameValuePair> parameters) {
+			return base + "?" + URLEncodedUtils.format(parameters, "UTF-8");
+		}
+		
+		/*
+		 * 
+		 *private void setQueryParameters(HttpRequestBase method, List<NameValuePair> parameters) throws FilesException{
+			URI oldURI = method.getURI();
+			try {
+				URI newURI = URIUtils.createURI(oldURI.getScheme(), oldURI.getHost(), -1, 
+						URLEncoder.encode(oldURI.getPath(), "UTF-8"), URLEncodedUtils.format(parameters, "UTF-8"), null);
+				logger.warn("Old Path: " + oldURI.getPath());
+				logger.warn("New URI: " + newURI);
+				method.setURI(newURI);
+			}
+			catch (UnsupportedEncodingException uee) {
+				logger.error("Somehow, we don't have UTF-8, this is quite a surprise", uee);
+				throw new FilesException("Somehow, we don't have UTF-8, this is quite a surprise", uee);
+			}
+			catch (URISyntaxException use) {
+				logger.error("Bad Syntax", use);
+				throw new FilesException("Bad URL Syntax", use);
+			}
+		}
+		*/
 		public void useSnet(){
 			if(snet){
 			}

@@ -3,9 +3,9 @@
  */
 package com.rackspacecloud.client.cloudfiles;
 
-import org.apache.commons.httpclient.Header;
-import org.apache.commons.httpclient.StatusLine;
-import org.apache.commons.httpclient.HttpException;
+import org.apache.http.Header;
+import org.apache.http.StatusLine;
+import org.apache.http.HttpException;
 
 /**
  * @author lvaughn
@@ -51,7 +51,7 @@ public class FilesException extends HttpException {
     	
         StringBuffer httpHeaderString = new StringBuffer();
         for (Header h: httpHeaders)
-            httpHeaderString.append(h.toExternalForm());
+            httpHeaderString.append(h.getName() + ": " + h.getValue() + "\n"); 
 
         return httpHeaderString.toString();
     }
@@ -85,7 +85,7 @@ public class FilesException extends HttpException {
      */
     public String getHttpVersion ()
     {
-        return httpStatusLine == null ? null : httpStatusLine.getHttpVersion();
+        return httpStatusLine == null ? null : httpStatusLine.getProtocolVersion().toString(); 
     }
 
 }

@@ -7,7 +7,7 @@ package com.rackspacecloud.client.cloudfiles.sample;
 import org.apache.log4j.Logger;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.cli.*;
-import org.apache.commons.httpclient.HttpException;
+import org.apache.http.HttpException;
 
 import java.io.*;
 import java.security.NoSuchAlgorithmException;
@@ -60,9 +60,9 @@ public class FilesRemove
 			System.err.println( "Please see the logs for more details. Error Message: "+err.getMessage() );
 			err.printStackTrace(System.err);
 		}//catch( ParseException err )
-		catch ( IOException err)
+		catch ( Exception err)
 		{
-			logger.fatal("IOException : "+ err);
+			logger.fatal("Exception : "+ err);
 			System.err.println( "Please see the logs for more details. Error Message: "+err.getMessage() );
 		}//catch ( IOException err)
 	}//end main

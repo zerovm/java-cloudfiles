@@ -61,7 +61,7 @@ public class FilesCli {
 			}
 			
 			return result;
-		} catch (IOException e) {
+		} catch (Exception e) {
 			System.out.println("Error logging in!");
 			e.printStackTrace();
 			return false;

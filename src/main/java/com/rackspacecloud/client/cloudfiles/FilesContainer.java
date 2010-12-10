@@ -4,7 +4,7 @@
 
 package com.rackspacecloud.client.cloudfiles;
 
-import org.apache.commons.httpclient.HttpException;
+import org.apache.http.HttpException;
 import org.apache.log4j.Logger;
 
 import java.util.List;
@@ -72,7 +72,7 @@ public class FilesContainer
      * @throws FilesAuthorizationException 
      * @throws FilesInvalidNameException 
      */
-    public List<FilesObject> getObjects() throws HttpException, IOException, FilesAuthorizationException, FilesException
+    public List<FilesObject> getObjects() throws IOException, FilesAuthorizationException, FilesException
     {
     
         if (client != null)
