@@ -354,4 +354,12 @@ public class FilesObject
 	public void setLastModified(String lastModified) {
 		this.lastModified = lastModified;
 	}
+	
+	/**
+	 * 
+	 * @return True if the "object" is really a directory.
+	 */
+	public boolean isDirectory() {
+		return this.size == 0 && "application/directory".equals(this.mimeType);
+	}
 }

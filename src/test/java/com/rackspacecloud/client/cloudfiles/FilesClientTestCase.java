@@ -43,12 +43,11 @@ public class FilesClientTestCase extends TestCase {
 	private static int NUMBER_RANDOM_BYTES = 513;
 	
 	public void testConstructor() {
-		FilesClient client = new FilesClient("foo", "bar", "baz");
+		FilesClient client = new FilesClient("foo", "bar");
 		
 		assertNotNull(client);
 		assertEquals("foo", client.getUserName());
 		assertEquals("bar", client.getPassword());
-		assertEquals("baz", client.getAccount());
 				
 	}
 
@@ -71,6 +70,9 @@ public class FilesClientTestCase extends TestCase {
 		} 
 		
 		// Now try a failed login
+		// Note: This causes a warning from DefaultHttpClient along these lines:
+		//       13 Dec 2010 15:46:26 WARN  impl.client.DefaultHttpClient - Authentication error: Unable to respond to any of these challenges: {}
+		//       It's just trying a little too hard to be helpful.  
 		client = new FilesClient(FilesUtil.getProperty("username"), 
 				 	   		  FilesUtil.getProperty("password") + " this is a bogus password", 
 				 	   		  FilesUtil.getProperty("account"));
@@ -947,6 +949,53 @@ public class FilesClientTestCase extends TestCase {
 		}		
 	}
 
+	public void testObjectListingWithDelimiter() {
+		String containerName = createTempContainerName("delimiter");
+		try {
+			byte randomData[] = makeRandomBytes();
+			FilesClient client = new FilesClient();
+			assertTrue(client.login());
+			
+			// Set up
+			client.createContainer(containerName);
+			
+			// Store it
+			for (int i=0; i < 10; i++) {
+				assertTrue(client.storeObject(containerName, randomData, "application/octet-stream", "foo/testfile" + i + ".bogus", new HashMap<String,String>()));
+				assertTrue(client.storeObject(containerName, randomData, "application/octet-stream", "bar/testfile" + i + ".bogus", new HashMap<String,String>()));
+			}
+			
+			// Make sure it's there
+			List<FilesObject> objects = client.listObjects(containerName);
+			assertEquals(20, objects.size());
+
+			// Now check with delimiter
+			objects = client.listObjects(containerName, new Character('/'));
+			assertEquals(2, objects.size());
+			for(FilesObject obj : objects) {
+				assertTrue(obj.isDirectory());
+			}
+			
+			objects = client.listObjects(containerName, "foo", new Character('/'));
+			assertEquals(10, objects.size());
+			for (FilesObject obj : objects) {
+				assertTrue(obj.getName().startsWith("foo/"));
+			}
+			
+			// Clean up 
+			for (int i=0; i < 10; i++) {
+				client.deleteObject(containerName, "foo/testfile" + i + ".bogus");
+				client.deleteObject(containerName, "bar/testfile" + i + ".bogus");
+			}
+			assertTrue(client.deleteContainer(containerName));
+			
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			fail(e.getMessage());
+		}		
+	}
+
 	public void testContainerListingWithLimitMarker() {
 		try {
 			FilesClient client = new FilesClient();
@@ -1439,7 +1488,6 @@ public class FilesClientTestCase extends TestCase {
 			assertFalse(client.containerExists(containerName));
 			
 		} catch (Exception e) {
-			e.printStackTrace();
 			fail(e.getMessage());
 		} 
 	}

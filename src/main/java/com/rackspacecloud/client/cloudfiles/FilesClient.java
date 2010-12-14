@@ -42,11 +42,17 @@ import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URLEncodedUtils;
+import org.apache.http.conn.scheme.PlainSocketFactory;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.params.BasicHttpParams;
 import org.apache.http.protocol.HTTP;
 import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
@@ -117,8 +123,8 @@ public class FilesClient
     private boolean useETag = true;
     private boolean snet = false;
     private String snetAddr = "https://snet-";
-
-    private HttpClient client = new DefaultHttpClient();
+ 
+    private HttpClient client = null;
 
     private static Logger logger = Logger.getLogger(FilesClient.class); 
 
@@ -128,20 +134,32 @@ public class FilesClient
      * @param account   The Cloud Files account to use
      * @param connectionTimeOut  The connection timeout, in ms.
      */
-    public FilesClient(String username, String password, String account, int connectionTimeOut)
+    public FilesClient(String username, String password, String authUrl, String account, int connectionTimeOut)
     {
+    	BasicHttpParams params = new BasicHttpParams();
+    	
         this.username = username;
         this.password = password;
         this.account = account;
+        params.setParameter("http.socket.timeout", this.connectionTimeOut );
+        SchemeRegistry schemeRegistry = new SchemeRegistry();
+        schemeRegistry.register(
+                new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
+        schemeRegistry.register(
+                new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
+        client = new DefaultHttpClient(new ThreadSafeClientConnManager(params, schemeRegistry), params);
+        
+        if (authUrl == null) {
+        	authUrl = FilesUtil.getProperty("auth_url");
+        }
         if (account != null && account.length() > 0) {
-        	this.authenticationURL = FilesUtil.getProperty("auth_url")+VERSION+"/"+account+FilesUtil.getProperty("auth_url_post");
+        	this.authenticationURL = authUrl +VERSION+"/"+account+FilesUtil.getProperty("auth_url_post");
         }
         else {
-        	this.authenticationURL = FilesUtil.getProperty("auth_url");
+        	this.authenticationURL = authUrl;
         }
         this.connectionTimeOut = connectionTimeOut;
 
-        client.getParams().setParameter("http.socket.timeout", this.connectionTimeOut );
         setUserAgent(FilesConstants.USER_AGENT);
 
         if (logger.isDebugEnabled()) { 
@@ -158,11 +176,11 @@ public class FilesClient
      * 
      * @param username
      * @param password
-     * @param account
+     * @param authUrl
      */
-    public FilesClient(String username, String password, String account)
+    public FilesClient(String username, String password, String authUrl)
     {
-        this (username, password, account, FilesUtil.getIntProperty("connection_timeout"));
+        this (username, password, authUrl, null, FilesUtil.getIntProperty("connection_timeout"));
     }
 
     /**
@@ -173,7 +191,7 @@ public class FilesClient
      */
     public FilesClient(String username, String apiAccessKey)
     {
-        this (username, apiAccessKey, null, FilesUtil.getIntProperty("connection_timeout"));
+        this (username, apiAccessKey, null, null, FilesUtil.getIntProperty("connection_timeout"));
     	//lConnectionManagerogger.warn("LGV");
         //logger.debug("LGV:" + client.getHttpConnectionManager()); 
     }
@@ -186,7 +204,8 @@ public class FilesClient
     public FilesClient()
     {
         this (FilesUtil.getProperty("username"), 
-        	  FilesUtil.getProperty("password"), 
+        	  FilesUtil.getProperty("password"),
+        	  null,
         	  FilesUtil.getProperty("account"), 
         	  FilesUtil.getIntProperty("connection_timeout"));
     }
@@ -530,6 +549,26 @@ public class FilesClient
      */
     public List<FilesObject> listObjectsStartingWith (String container, String startsWith, String path, int limit, String marker) throws IOException, FilesException
     {
+    	return listObjectsStartingWith(container, startsWith, path, limit, marker, null);
+    }
+    /**
+         * List all of the objects in a container with the given starting string.
+         * 
+         * @param container  The container name
+         * @param startsWith The string to start with
+         * @param path Only look for objects in this path
+         * @param limit Return at most <code>limit</code> objects
+         * @param marker Returns objects lexicographically greater than <code>marker</code>.  Used in conjunction with <code>limit</code> to paginate the list.  
+         * @param delimter Use this argument as the delimiter that separates "directories"
+         * 
+         * @return A list of FilesObjects starting with the given string
+         * @throws IOException   There was an IO error doing network communication
+         * @throws HttpException There was an error with the http protocol
+         * @throws FilesException There was another error in the request to the server.
+         * @throws FilesAuthorizationException The client's login was invalid.
+         */
+        public List<FilesObject> listObjectsStartingWith (String container, String startsWith, String path, int limit, String marker, Character delimiter) throws IOException, FilesException
+        {
     	if (!this.isLoggedin()) {
        		throw new FilesAuthorizationException("You must be logged in", null, null);
     	}
@@ -541,8 +580,7 @@ public class FilesClient
     		LinkedList<NameValuePair> parameters = new LinkedList<NameValuePair>();
     		parameters.add(new BasicNameValuePair ("format", "xml"));
     		if (startsWith != null) {
-    			parameters.add(new BasicNameValuePair (FilesConstants.LIST_CONTAINER_NAME_QUERY, startsWith));
-    		}
+    			parameters.add(new BasicNameValuePair (FilesConstants.LIST_CONTAINER_NAME_QUERY, startsWith));    		}
        		if(path != null) {
     			parameters.add(new BasicNameValuePair("path", path));
     		}
@@ -552,6 +590,9 @@ public class FilesClient
        		if(marker != null) {
     			parameters.add(new BasicNameValuePair("marker", marker));
     		}
+       		if (delimiter != null) {
+       			parameters.add(new BasicNameValuePair("delimiter", delimiter.toString()));
+       		}
        		
        		String uri = parameters.size() > 0 ? makeURI(storageURL+"/"+sanitizeForURI(container), parameters) : storageURL;
        		method = new HttpGet(uri);
@@ -588,13 +629,19 @@ public class FilesClient
     			NodeList objectNodes = containerList.getChildNodes();
     			for(int i=0; i < objectNodes.getLength(); ++i) {
     				Node objectNode = objectNodes.item(i);
-     				if(!"object".equals(objectNode.getNodeName())) continue;
+    				String nodeName = objectNode.getNodeName();
+     				if(!("object".equals(nodeName) || "subdir".equals(nodeName))) continue;
     				String name = null;
     				String eTag = null;
     				long size = -1;
     				String mimeType = null;
     				String lastModified = null;
     				NodeList objectData = objectNode.getChildNodes(); 
+    				if ("subdir".equals(nodeName)) {
+    					size = 0;
+    					mimeType = "application/directory";
+    					name = objectNode.getAttributes().getNamedItem("name").getNodeValue();
+    				}
     				for(int j=0; j < objectData.getLength(); ++j) {
     					Node data = objectData.item(j);
     					if ("name".equals(data.getNodeName())) {
@@ -652,20 +699,36 @@ public class FilesClient
     	}
     }
 
-    /**
-     * List the objects in a container in lexicographic order.  
-     * 
-     * @param container  The container name
-     * 
-     * @return A list of FilesObjects starting with the given string
-     * @throws IOException   There was an IO error doing network communication
-     * @throws HttpException There was an error with the http protocol
-     * @throws FilesException There was another error in the request to the server.
-     * @throws FilesAuthorizationException The client's login was invalid.
-     */
-    public List<FilesObject> listObjects(String container) throws IOException, FilesAuthorizationException, FilesException {
-    	return listObjectsStartingWith(container, null, null, -1, null);
-    }
+        /**
+         * List the objects in a container in lexicographic order.  
+         * 
+         * @param container  The container name
+         * 
+         * @return A list of FilesObjects starting with the given string
+         * @throws IOException   There was an IO error doing network communication
+         * @throws HttpException There was an error with the http protocol
+         * @throws FilesException There was another error in the request to the server.
+         * @throws FilesAuthorizationException The client's login was invalid.
+         */
+        public List<FilesObject> listObjects(String container) throws IOException, FilesAuthorizationException, FilesException {
+        	return listObjectsStartingWith(container, null, null, -1, null, null);
+        }
+
+        /**
+         * List the objects in a container in lexicographic order.  
+         * 
+         * @param container  The container name
+         * @param delimter Use this argument as the delimiter that separates "directories"
+         * 
+         * @return A list of FilesObjects starting with the given string
+         * @throws IOException   There was an IO error doing network communication
+         * @throws HttpException There was an error with the http protocol
+         * @throws FilesException There was another error in the request to the server.
+         * @throws FilesAuthorizationException The client's login was invalid.
+         */
+        public List<FilesObject> listObjects(String container, Character delimiter) throws IOException, FilesAuthorizationException, FilesException {
+        	return listObjectsStartingWith(container, null, null, -1, null, delimiter);
+        }
 
     /**
      * List the objects in a container in lexicographic order.  
@@ -680,7 +743,7 @@ public class FilesClient
      * @throws FilesAuthorizationException The client's login was invalid.
      */
     public List<FilesObject> listObjects(String container, int limit) throws IOException, HttpException, FilesAuthorizationException, FilesException {
-    	return listObjectsStartingWith(container, null, null, limit, null);
+    	return listObjectsStartingWith(container, null, null, limit, null, null);
     }
 
     /**
@@ -695,7 +758,23 @@ public class FilesClient
      * @throws FilesException There was another error in the request to the server.
      */
     public List<FilesObject> listObjects(String container, String path) throws IOException, HttpException, FilesAuthorizationException, FilesException {
-    	return listObjectsStartingWith(container, null, path, -1, null);
+    	return listObjectsStartingWith(container, null, path, -1, null, null);
+    }
+
+    /**
+     * List the objects in a container in lexicographic order.  
+     * 
+     * @param container  The container name
+     * @param path Only look for objects in this path
+     * @param delimter Use this argument as the delimiter that separates "directories"
+     * 
+     * @return A list of FilesObjects starting with the given string
+     * @throws IOException   There was an IO error doing network communication
+     * @throws HttpException There was an error with the http protocol
+     * @throws FilesException There was another error in the request to the server.
+     */
+    public List<FilesObject> listObjects(String container, String path, Character delimiter) throws IOException, HttpException, FilesAuthorizationException, FilesException {
+    	return listObjectsStartingWith(container, null, path, -1, null, delimiter);
     }
 
     /**
