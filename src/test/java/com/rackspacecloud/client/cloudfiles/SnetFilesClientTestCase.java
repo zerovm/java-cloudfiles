@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import org.apache.commons.httpclient.methods.ByteArrayRequestEntity;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.SystemUtils;
 import org.apache.log4j.Logger;
@@ -930,8 +929,7 @@ public class SnetFilesClientTestCase extends TestCase {
 			client.createContainer(containerName);
 			
 			// Store it
-			ByteArrayRequestEntity entity = new ByteArrayRequestEntity(randomData, "test/content_type");
-			assertTrue(client.storeObjectAs(containerName, filename, entity, new HashMap<String,String>(), FilesClient.md5Sum(randomData)));
+			assertTrue(client.storeObject(containerName, randomData, "test/content_type", filename, new HashMap<String,String>()));
 			
 			// Make sure it's there
 			List<FilesObject> objects = client.listObjects(containerName);
