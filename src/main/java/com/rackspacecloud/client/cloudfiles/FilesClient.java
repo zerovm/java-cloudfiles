@@ -2754,28 +2754,7 @@ public boolean storeObjectAs(String container, String name, HttpEntity entity, M
     /**
      * @param config
      */
-    /*public void setHostConfiguration(HostConfiguration config) {
-        client.setHostConfiguration(config);  
-    } */
-	private HttpResponse doUpdateObjectMetadata(String container, 
-			String object, Map<String,String> metadata) 
-			throws HttpException, IOException {
-			HttpPost method;
-			
-	    	method = new HttpPost(storageURL +
-	    		"/"+FilesClient.sanitizeForURI(container)+
-	    		"/"+FilesClient.sanitizeForURI(object));
-	   		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
-	   		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-	   		if (!(metadata == null || metadata.isEmpty())) {
-	   			for(String key:metadata.keySet())
-	   				method.setHeader(FilesConstants.X_OBJECT_META+key, 
-	   					FilesClient.sanitizeForURI(metadata.get(key)));
-	   		}
-
-	   		return client.execute(method);
-		}
-
+ 
 		public boolean updateObjectMetadata(String container, String object, 
 			Map<String,String> metadata) throws FilesAuthorizationException, 
 			HttpException, IOException, FilesInvalidNameException {
@@ -2791,20 +2770,40 @@ public boolean storeObjectAs(String container, String name, HttpEntity entity, M
 	    	if (!isValidObjectName(object))
 				throw new FilesInvalidNameException(object);
 	    	
+	    	String postUrl = storageURL + "/"+FilesClient.sanitizeForURI(container) +
+	    		"/"+FilesClient.sanitizeForURI(object);
+	    	
+	    	HttpPost method = null;
 	    	try {
-	    		HttpResponse resp = doUpdateObjectMetadata(container, object, metadata);
+		    	method = new HttpPost(postUrl);
+		   		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+		   		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+		   		if (!(metadata == null || metadata.isEmpty())) {
+		   			for(String key:metadata.keySet())
+		   				method.setHeader(FilesConstants.X_OBJECT_META+key, 
+		   					FilesClient.sanitizeForURI(metadata.get(key)));
+		   		}
+	    		HttpResponse resp = client.execute(method);
 	    		response = new FilesResponse(resp);
 	    		if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-	    			// method.abort(); TODO:  Update this
+	    			method.abort(); 
 	    			if(login()) {
-	    				doUpdateObjectMetadata(container, object, metadata);
+	    				method = new HttpPost(postUrl);
+	    		   		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+	    		   		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+	    		   		if (!(metadata == null || metadata.isEmpty())) {
+	    		   			for(String key:metadata.keySet())
+	    		   				method.setHeader(FilesConstants.X_OBJECT_META+key, 
+	    		   					FilesClient.sanitizeForURI(metadata.get(key)));
+	    		   		}
+	    	    		client.execute(method);
 	    			}
 	    		}
 	    		
 	    		return true;
 	    	} finally {
-	    		//if (method != null) 
-	    		//	method.abort(); //TODO:  Update this
+	    		if (method != null) 
+	    			method.abort();
 	    	}
 	    	
 		}

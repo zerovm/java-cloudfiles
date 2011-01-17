@@ -599,8 +599,7 @@ public class FilesClientTestCase extends TestCase {
 		finally {
 			File f = new File(fullPath);
 			f.delete();
-		}
-		
+		}		
 	}
 	public void testFileSavingWithMetadata() {
 		String containerName = createTempContainerName("meta-data-test");
@@ -670,6 +669,93 @@ public class FilesClientTestCase extends TestCase {
 		
 	}
 
+	public void testMetadataUpdate() {
+		String containerName = createTempContainerName("metadata-update");
+		String filename = makeFileName("random-with-meta");
+		String fullPath = FilenameUtils.concat(SYSTEM_TMP.getAbsolutePath(), filename);
+		logger.info("Test File Location: " + fullPath);
+		try {
+			makeRandomFile(fullPath);
+			
+			// DefaultHttpClient is single threaded, which will catch a big we've seen with not
+			// releasing the connection
+			DefaultHttpClient httpClient = new DefaultHttpClient();
+			FilesClient client = new FilesClient(httpClient,
+					FilesUtil.getProperty("username"), 
+					FilesUtil.getProperty("password"),
+					null,
+					FilesUtil.getProperty("account"), 
+					FilesUtil.getIntProperty("connection_timeout"));
+			assertTrue(client.login());
+
+			// Set up
+			client.createContainer(containerName);
+
+			// Store it
+			HashMap<String,String> meta = new HashMap<String,String>();
+			meta.put("Foo", "bar");
+			meta.put("Uni", "\u0169\u00f1\u00efcode-test");
+			meta.put("Width", "336");
+			meta.put("Height", "183");
+			assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename, meta));
+
+			// Make sure it's there
+			List<FilesObject> objects = client.listObjects(containerName);
+			assertEquals(1, objects.size());
+			FilesObject obj = objects.get(0);
+			assertEquals(filename, obj.getName());
+			assertEquals("application/octet-stream", obj.getMimeType());
+
+			// Make sure the metadata is correct
+			FilesObjectMetaData metadata = client.getObjectMetaData(containerName, filename);
+			assertNotNull(metadata);
+			Map<String,String> serverMetadata = metadata.getMetaData();
+			assertEquals(meta.size(), serverMetadata.size());
+			for(String key : meta.keySet()) {
+				assertTrue(serverMetadata.containsKey(key));
+				assertEquals(meta.get(key), serverMetadata.get(key));
+			}
+
+			// Make sure we can update
+			meta.put("Foo", "one");
+			meta.put("Uni", "\u0169\u00f1\u00eftwo");
+			meta.put("Width", "three");
+			meta.put("Height", "four");
+			assertTrue(client.updateObjectMetadata(containerName, filename, meta));
+
+			// Re-fect and make sure things are the same
+			objects = client.listObjects(containerName);
+			assertEquals(1, objects.size());
+			obj = objects.get(0);
+			assertEquals(filename, obj.getName());
+			assertEquals("application/octet-stream", obj.getMimeType());
+			metadata = client.getObjectMetaData(containerName, filename);
+			assertNotNull(metadata);
+			serverMetadata = metadata.getMetaData();
+			assertEquals(meta.size(), serverMetadata.size());
+			for(String key : meta.keySet()) {
+				assertTrue(serverMetadata.containsKey(key));
+				assertEquals(meta.get(key), serverMetadata.get(key));
+			}
+			// Clean up 
+			client.deleteObject(containerName, filename);
+			assertTrue(client.deleteContainer(containerName));
+
+		}
+		catch (FilesException e) {
+			e.printStackTrace();
+			fail(e.getHttpStatusMessage() + ":" + e.getMessage());
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			fail(e.getMessage());
+		}
+		finally {
+			File f = new File(fullPath);
+			f.delete();
+		}
+	}
+	
 	public void testFileSavingNoETag() {
 		String containerName = createTempContainerName("etagless");
 		String filename = makeFileName("etagless");
