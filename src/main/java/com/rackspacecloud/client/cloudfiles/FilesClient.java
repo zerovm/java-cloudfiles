@@ -42,6 +42,7 @@ import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URLEncodedUtils;
+import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
@@ -53,6 +54,7 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HTTP;
 import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
@@ -129,46 +131,65 @@ public class FilesClient
     private static Logger logger = Logger.getLogger(FilesClient.class); 
 
     /**
+     * @param client    The HttpClient to talk to Swift
      * @param username  The username to log in to 
      * @param password  The password
      * @param account   The Cloud Files account to use
      * @param connectionTimeOut  The connection timeout, in ms.
      */
-    public FilesClient(String username, String password, String authUrl, String account, int connectionTimeOut)
-    {
-    	BasicHttpParams params = new BasicHttpParams();
-    	
+   public FilesClient(HttpClient client, String username, String password, String authUrl, String account, int connectionTimeOut) {
+        this.client = client;
         this.username = username;
         this.password = password;
         this.account = account;
-        params.setParameter("http.socket.timeout", this.connectionTimeOut );
-        SchemeRegistry schemeRegistry = new SchemeRegistry();
-        schemeRegistry.register(
-                new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
-        schemeRegistry.register(
-                new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
-        client = new DefaultHttpClient(new ThreadSafeClientConnManager(params, schemeRegistry), params);
-        
-        if (authUrl == null) {
-        	authUrl = FilesUtil.getProperty("auth_url");
+        if(authUrl == null) {
+            authUrl = FilesUtil.getProperty("auth_url");
         }
-        if (account != null && account.length() > 0) {
-        	this.authenticationURL = authUrl +VERSION+"/"+account+FilesUtil.getProperty("auth_url_post");
+        if(account != null && account.length() > 0) {
+            this.authenticationURL = authUrl + VERSION + "/" + account + FilesUtil.getProperty("auth_url_post");
         }
         else {
-        	this.authenticationURL = authUrl;
+            this.authenticationURL = authUrl;
         }
         this.connectionTimeOut = connectionTimeOut;
 
         setUserAgent(FilesConstants.USER_AGENT);
 
-        if (logger.isDebugEnabled()) { 
-        	logger.debug("UserName: "+ this.username);
-            logger.debug("AuthenticationURL: "+ this.authenticationURL);
-            logger.debug("ConnectionTimeOut: "+ this.connectionTimeOut);
+        if(logger.isDebugEnabled()) {
+            logger.debug("UserName: " + this.username);
+            logger.debug("AuthenticationURL: " + this.authenticationURL);
+            logger.debug("ConnectionTimeOut: " + this.connectionTimeOut);
         }
-        //logger.debug("LGV:" + client.getHttpConnectionManager()); 
-    }
+     }
+
+    /**
+     * @param username  The username to log in to 
+     * @param password  The password
+     * @param account   The Cloud Files account to use
+     * @param connectionTimeOut  The connection timeout, in ms.
+     */
+    public FilesClient(String username, String password, String authUrl, String account, final int connectionTimeOut)
+    {
+    	   this(new DefaultHttpClient() {
+    	        protected HttpParams createHttpParams() {
+    	            BasicHttpParams params = new BasicHttpParams();
+    	            org.apache.http.params.HttpConnectionParams.setSoTimeout(params, connectionTimeOut);
+    	            params.setParameter("http.socket.timeout", connectionTimeOut);
+    	            return params;
+    	        }
+
+    	        @Override
+    	        protected ClientConnectionManager createClientConnectionManager() {
+    	            SchemeRegistry schemeRegistry = new SchemeRegistry();
+    	            schemeRegistry.register(
+    	                    new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
+    	            schemeRegistry.register(
+    	                    new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
+    	            return new ThreadSafeClientConnManager(createHttpParams(), schemeRegistry);
+    	        }
+    	    }, username, password, authUrl, account, connectionTimeOut);
+
+     }
 
     /**
      * This method uses the default connection time out of CONNECTON_TIMEOUT.  If <code>account</code>

@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Random;
 
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.SystemUtils;
 import org.apache.log4j.Logger;
@@ -389,6 +390,63 @@ public class FilesClientTestCase extends TestCase {
 		} catch (Exception e) {
 			fail(e.getMessage());
 		} 
+	}
+	public void testCustomHttpClient() {
+		String containerName = createTempContainerName("customHttp");
+		String filename = makeFileName("customHttpFile");
+		String fullPath = FilenameUtils.concat(SYSTEM_TMP.getAbsolutePath(), filename);
+		logger.debug("Test File Location: " + fullPath);
+		try {
+			byte randomData[] = makeRandomFile(fullPath);
+			
+			DefaultHttpClient httpClient = new DefaultHttpClient();
+			
+			FilesClient client = new FilesClient(httpClient,
+					FilesUtil.getProperty("username"), 
+					FilesUtil.getProperty("password"),
+					null,
+					FilesUtil.getProperty("account"), 
+					FilesUtil.getIntProperty("connection_timeout"));
+			assertTrue(client.login());
+			
+			// Set up
+			client.createContainer(containerName);
+			
+			// Store it
+			logger.info("About to save: " + filename);
+			assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename));
+			
+			// Make sure it's there
+			List<FilesObject> objects = client.listObjects(containerName);
+			assertEquals(1, objects.size());
+			FilesObject obj = objects.get(0);
+			assertEquals(filename, obj.getName());
+			assertEquals("application/octet-stream", obj.getMimeType());
+			
+			// Make sure the data is correct
+			assertArrayEquals(randomData, client.getObject(containerName, filename));
+			
+			// Make sure the data is correct as a stream
+			InputStream is = client.getObjectAsStream(containerName, filename);
+			byte otherData[] = new byte[NUMBER_RANDOM_BYTES];
+			is.read(otherData);
+			assertArrayEquals(randomData, otherData);
+			assertEquals(-1, is.read()); // Could hang if there's a bug on the other end
+			
+			// Clean up 
+			client.deleteObject(containerName, filename);
+			assertTrue(client.deleteContainer(containerName));
+			
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			fail(e.getMessage());
+		}
+		finally {
+			File f = new File(fullPath);
+			f.delete();
+		}
+		
 	}
 	
 	public void testFileSaving() {
