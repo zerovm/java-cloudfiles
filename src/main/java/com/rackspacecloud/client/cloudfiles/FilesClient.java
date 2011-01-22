@@ -1765,11 +1765,12 @@ public class FilesClient
      * @param obj         The File containing the file to copy over
      * @param contentType The MIME type of the file
      * @param name        The name of the file on the server
+     * @return The ETAG if the save was successful, null otherwise
      * @throws IOException   There was an IO error doing network communication
      * @throws HttpException There was an error with the http protocol
      * @throws FilesException 
      */
-    public boolean storeObjectAs (String container, File obj, String contentType, String name) throws IOException, HttpException, FilesException
+    public String storeObjectAs (String container, File obj, String contentType, String name) throws IOException, HttpException, FilesException
     {
     	return storeObjectAs(container, obj, contentType, name, new HashMap<String,String>(), null);
     }	
@@ -1781,11 +1782,12 @@ public class FilesClient
      * @param obj         The File containing the file to copy over
      * @param contentType The MIME type of the file
      * @param name        The name of the file on the server
+     * @return The ETAG if the save was successful, null otherwise
      * @throws IOException   There was an IO error doing network communication
      * @throws HttpException There was an error with the http protocol
      * @throws FilesException 
      */
-    public boolean storeObjectAs (String container, File obj, String contentType, String name, IFilesTransferCallback callback) throws IOException, HttpException, FilesException
+    public String storeObjectAs (String container, File obj, String contentType, String name, IFilesTransferCallback callback) throws IOException, HttpException, FilesException
     {
     	return storeObjectAs(container, obj, contentType, name, new HashMap<String,String>(), callback);
     }	
@@ -1798,11 +1800,12 @@ public class FilesClient
      * @param contentType The MIME type of the file
      * @param name        The name of the file on the server
      * @param metadata    A map with the metadata as key names and values as the metadata values
+     * @return The ETAG if the save was successful, null otherwise
      * @throws IOException   There was an IO error doing network communication
      * @throws HttpException There was an error with the http protocol
      * @throws FilesAuthorizationException 
       */
-    public boolean storeObjectAs (String container, File obj, String contentType, String name, Map<String,String> metadata) throws IOException, HttpException, FilesException
+    public String storeObjectAs (String container, File obj, String contentType, String name, Map<String,String> metadata) throws IOException, HttpException, FilesException
     {
     	return storeObjectAs (container, obj, contentType, name, metadata, null);
     }
@@ -1816,11 +1819,12 @@ public class FilesClient
      * @param name        The name of the file on the server
      * @param metadata    A map with the metadata as key names and values as the metadata values
      * @param metadata    The callback object that will be called as the data is sent
+     * @return The ETAG if the save was successful, null otherwise
      * @throws IOException   There was an IO error doing network communication
      * @throws HttpException There was an error with the http protocol
      * @throws FilesException 
      */
-    public boolean storeObjectAs (String container, File obj, String contentType, String name, Map<String,String> metadata, IFilesTransferCallback callback) throws IOException, HttpException, FilesException
+    public String storeObjectAs (String container, File obj, String contentType, String name, Map<String,String> metadata, IFilesTransferCallback callback) throws IOException, HttpException, FilesException
     {
     	if (this.isLoggedin())
     	{
@@ -1871,7 +1875,7 @@ public class FilesClient
     				}
     				if (response.getStatusCode() == HttpStatus.SC_CREATED)
     				{
-    					return true;
+    					return response.getResponseHeader(FilesConstants.E_TAG).getValue();
     				}
     				else if (response.getStatusCode() == HttpStatus.SC_PRECONDITION_FAILED)
     				{
@@ -1912,11 +1916,12 @@ public class FilesClient
      * @param container    The name of the container to place the file in
      * @param obj          The File to transfer
      * @param contentType  The file's MIME type
+     * @return The ETAG if the save was successful, null otherwise
      * @throws IOException   There was an IO error doing network communication
      * @throws HttpException There was an error with the http protocol
      * @throws FilesException 
      */
-    public boolean storeObject (String container, File obj, String contentType) throws IOException, HttpException, FilesException
+    public String storeObject (String container, File obj, String contentType) throws IOException, HttpException, FilesException
     {
     	return storeObjectAs(container, obj, contentType, obj.getName());
     }
@@ -2111,7 +2116,7 @@ public class FilesClient
     * @param entity The name of the request entity (make sure to set the Content-Type
     * @param metadata The metadata for the object
     * @param md5sum The 32 character hex encoded MD5 sum of the data
-    * @return True of the save was successful
+    * @return The ETAG if the save was successful, null otherwise
     * @throws IOException There was a socket level exception talking to CloudFiles
     * @throws HttpException There was a protocol level error talking to CloudFiles
     * @throws FilesException There was an error talking to CloudFiles.

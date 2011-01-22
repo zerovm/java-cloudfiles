@@ -57,6 +57,7 @@
 		<javac destdir="${classes}"
 			optimize="off"
 			debug="on"
+ 			source="1.5" target="1.5"
 			failonerror="true"
 			srcdir="${src}">
 			<classpath>

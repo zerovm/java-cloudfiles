@@ -138,7 +138,7 @@ public class SnetFilesClientTestCase extends TestCase {
 			String[] names =  new String[10];
 			for(int i=0; i < 10; ++i) names[i] = "File" + (i + 1) + ".txt";
 			for(int i=0; i < 5; ++i) 			
-				assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", names[i]));
+				assertNotNull(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", names[i]));
 
             for (int i = 0; i < 10; i++) {
                 String fileName = names[i];
@@ -460,7 +460,7 @@ public class SnetFilesClientTestCase extends TestCase {
 			
 			// Store it
 			logger.info("About to save: " + filename);
-			assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename));
+			assertNotNull(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename));
 			
 			// Make sure it's there
 			List<FilesObject> objects = client.listObjects(containerName);
@@ -512,7 +512,7 @@ public class SnetFilesClientTestCase extends TestCase {
 			
 			// Store it
 			logger.info("About to save: " + filename);
-			assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", otherFileName));
+			assertNotNull(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", otherFileName));
 			
 			// Make sure it's there
 			List<FilesObject> objects = client.listObjects(containerName);
@@ -563,7 +563,7 @@ public class SnetFilesClientTestCase extends TestCase {
 			// Store it
 			logger.info("About to save: " + filename);
 			TesterCallback callback = new TesterCallback();
-			assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename, callback));
+			assertNotNull(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename, callback));
 			
 			// Make sure the callback was called 
 			assertEquals(randomData.length, callback.bytesSent);
@@ -623,7 +623,7 @@ public class SnetFilesClientTestCase extends TestCase {
 			meta.put("Uni", "\u0169\u00f1\u00efcode-test");
 			meta.put("Width", "336");
 			meta.put("Height", "183");
-			assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename, meta));
+			assertNotNull(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename, meta));
 			
 			// Make sure it's there
 			List<FilesObject> objects = client.listObjects(containerName);
@@ -691,7 +691,7 @@ public class SnetFilesClientTestCase extends TestCase {
 			client.createContainer(containerName);
 			
 			// Store it
-			assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename));
+			assertNotNull(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename));
 			
 			// Make sure it's there
 			List<FilesObject> objects = client.listObjects(containerName);
@@ -742,7 +742,7 @@ public class SnetFilesClientTestCase extends TestCase {
 			
 			// Store it
 			logger.info("About to save: " + filename);
-			assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename));
+			assertNotNull(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename));
 			
 			// Make sure it's there
 			List<FilesObject> objects = client.listObjects(containerName);
@@ -1282,7 +1282,7 @@ public class SnetFilesClientTestCase extends TestCase {
 			client.createContainer(containerName);
 			
 			// Store it
-			assertTrue(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename));
+			assertNotNull(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename));
 			
 			// Make sure it's there
 			List<FilesObject> objects = client.listObjects(containerName);
