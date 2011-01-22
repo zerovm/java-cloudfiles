@@ -362,4 +362,24 @@ public class FilesObject
 	public boolean isDirectory() {
 		return this.size == 0 && "application/directory".equals(this.mimeType);
 	}
+	
+	/**
+	 * 
+	 * @return The CDN url for the object (if its container has been CDN enabled), null if 
+	 *         the container hasn't been CDN enabled.
+	 * @throws HttpException 
+	 * @throws IOException 
+	 * @throws FilesException 
+	 */
+	public String getCDNURL () throws FilesException, IOException, HttpException  {
+		try {
+			FilesCDNContainer c = client.getCDNContainerInfo(container);
+			return c.getCdnURL() + "/" + name;
+		}
+		catch (FilesNotFoundException fnfe) {
+			// Not enabled
+			return null;
+		}
+		
+	}
 }

@@ -2578,7 +2578,8 @@ public boolean storeObjectAs(String container, String name, HttpEntity entity, M
     public static String sanitizeForURI(String str) {
     	URLCodec codec= new URLCodec();
     	try {
-    		return codec.encode(str).replaceAll("\\+", "%20").replaceAll("%2F", "/");
+    		//return codec.encode(str).replaceAll("\\+", "%20").replaceAll("%2F", "/");
+    		return codec.encode(str).replaceAll("\\+", "%20");
     	}
     	catch (EncoderException ee) {
     		logger.warn("Error trying to encode string for URI", ee);

@@ -498,6 +498,48 @@ public class FilesClientTestCase extends TestCase {
 		}
 		
 	}
+	public void testSlashInName() {
+		String containerName = createTempContainerName("slashTest");
+		String filename = makeFileName("slash/backslash\\slash");
+		try {
+			byte randomData[] = makeRandomBytes();
+			FilesClient client = new FilesClient();
+			// client.setUseETag(false);
+			assertTrue(client.login());
+			
+			// Set up
+			client.createContainer(containerName);
+			
+			// Store it
+			assertTrue(client.storeObject(containerName, randomData, "application/octet-stream", filename, new HashMap<String,String>()));
+			
+			// Make sure it's there
+			List<FilesObject> objects = client.listObjects(containerName);
+			assertEquals(1, objects.size());
+			FilesObject obj = objects.get(0);
+			assertEquals(filename, obj.getName());
+			assertEquals("application/octet-stream", obj.getMimeType());
+			
+			// Make sure the data is correct
+			assertArrayEquals(randomData, client.getObject(containerName, filename));
+			
+			// Make sure the data is correct as a stream
+			InputStream is = client.getObjectAsStream(containerName, filename);
+			byte otherData[] = new byte[NUMBER_RANDOM_BYTES];
+			is.read(otherData);
+			assertArrayEquals(randomData, otherData);
+			assertEquals(-1, is.read()); // Could hang if there's a bug on the other end
+			
+			// Clean up 
+			client.deleteObject(containerName, filename);
+			assertTrue(client.deleteContainer(containerName));
+			
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			fail(e.getMessage());
+		}		
+	}
 	public void testSaveAs() {
 		String containerName = createTempContainerName("file-test");
 		String filename = makeFileName("random");
@@ -1497,6 +1539,38 @@ public class FilesClientTestCase extends TestCase {
 		} 
 	}
 	
+	public void testCDNUrlOnObject() {
+		String containerName = createTempContainerName("cdnURLtest");
+		String filename = makeFileName("cdnURLtest");
+		try {
+			byte randomData[] = makeRandomBytes();
+			FilesClient client = new FilesClient();
+			// client.setUseETag(false);
+			assertTrue(client.login());
+			
+			// Set up
+			client.createContainer(containerName);
+			String cdnUrl = client.cdnEnableContainer(containerName); 
+			
+			// Store it
+			assertTrue(client.storeObject(containerName, randomData, "application/octet-stream", filename, new HashMap<String,String>()));
+			
+			// Make sure it's there
+			List<FilesObject> objects = client.listObjects(containerName);
+			
+			// See that the CDN URL works
+			FilesObject obj = objects.get(0);
+			assertEquals(cdnUrl + "/" + filename, obj.getCDNURL());
+			
+			// Clean up 
+			client.deleteObject(containerName, filename);
+			assertTrue(client.deleteContainer(containerName));
+			
+		} catch (Exception e) {
+			fail(e.getMessage());
+		} 
+		
+	}
 	
 	public void testCDNContainerFullListingAll() {
 		FilesClient client = new FilesClient();
