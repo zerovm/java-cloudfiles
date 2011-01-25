@@ -293,7 +293,7 @@ public class FilesCli {
 						System.out.println("Container " + containerName + " does not exist");
 						return true;
 					}
-					if (client.storeObject(containerName, file, mimeType)) { 
+					if (client.storeObject(containerName, file, mimeType) != null) { 
 						System.out.println("Object " + file.getName() + " was created");
 					}
 					return true;
