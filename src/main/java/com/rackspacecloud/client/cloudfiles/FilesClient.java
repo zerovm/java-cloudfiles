@@ -2055,7 +2055,7 @@ public class FilesClient
      * @throws HttpException There was an error with the http protocol
      * @throws FilesException 
      */
-    public boolean storeStreamedObject(String container, InputStream data, String contentType, String name, Map<String,String> metadata) throws IOException, HttpException, FilesException
+    public String storeStreamedObject(String container, InputStream data, String contentType, String name, Map<String,String> metadata) throws IOException, HttpException, FilesException
     {
     	if (this.isLoggedin())
     	{
@@ -2081,8 +2081,7 @@ public class FilesClient
         			
         			if (response.getStatusCode() == HttpStatus.SC_CREATED)
         			{
-        				logger.debug ("Object stored : " + name);
-        				return true;
+        				return response.getResponseHeader(FilesConstants.E_TAG).getValue();
         			}
         			else {
         				logger.error(response.getStatusLine());
@@ -2121,7 +2120,7 @@ public class FilesClient
     * @throws HttpException There was a protocol level error talking to CloudFiles
     * @throws FilesException There was an error talking to CloudFiles.
     */
-public boolean storeObjectAs(String container, String name, HttpEntity entity, Map<String,String> metadata, String md5sum) throws IOException, HttpException, FilesException
+public String storeObjectAs(String container, String name, HttpEntity entity, Map<String,String> metadata, String md5sum) throws IOException, HttpException, FilesException
     {
     	if (this.isLoggedin())
     	{
@@ -2159,8 +2158,7 @@ public boolean storeObjectAs(String container, String name, HttpEntity entity, M
         			
         			if (response.getStatusCode() == HttpStatus.SC_CREATED)
         			{
-        				logger.debug ("Object stored : " + name);
-        				return true;
+        				return response.getResponseHeader(FilesConstants.E_TAG).getValue();
         			}
         			else {
         				logger.debug(response.getStatusLine());
