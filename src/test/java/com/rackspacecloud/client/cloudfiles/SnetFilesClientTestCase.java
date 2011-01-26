@@ -1128,7 +1128,7 @@ public class SnetFilesClientTestCase extends TestCase {
 			client.createContainer(containerName);
 			
 			// Store it
-			assertTrue(client.storeStreamedObject(containerName, new ByteArrayInputStream(randomData), "application/octet-stream", filename, new HashMap<String,String>()));
+			assertNotNull(client.storeStreamedObject(containerName, new ByteArrayInputStream(randomData), "application/octet-stream", filename, new HashMap<String,String>()));
 			
 			// Make sure it's there
 			List<FilesObject> objects = client.listObjects(containerName);

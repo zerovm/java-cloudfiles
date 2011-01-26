@@ -1049,7 +1049,7 @@ public class FilesClientTestCase extends TestCase {
 			ByteArrayEntity entity = new ByteArrayEntity(randomData);
 			entity.setContentType("test/content_type");
 
-			assertTrue(client.storeObjectAs(containerName, filename, entity, new HashMap<String,String>(), FilesClient.md5Sum(randomData)));
+			assertNotNull(client.storeObjectAs(containerName, filename, entity, new HashMap<String,String>(), FilesClient.md5Sum(randomData)));
 			
 			// Make sure it's there
 			List<FilesObject> objects = client.listObjects(containerName);
@@ -1287,7 +1287,7 @@ public class FilesClientTestCase extends TestCase {
 			client.createContainer(containerName);
 			
 			// Store it
-			assertTrue(client.storeStreamedObject(containerName, new ByteArrayInputStream(randomData), "application/octet-stream", filename, new HashMap<String,String>()));
+			assertNotNull(client.storeStreamedObject(containerName, new ByteArrayInputStream(randomData), "application/octet-stream", filename, new HashMap<String,String>()));
 			
 			// Make sure it's there
 			List<FilesObject> objects = client.listObjects(containerName);
