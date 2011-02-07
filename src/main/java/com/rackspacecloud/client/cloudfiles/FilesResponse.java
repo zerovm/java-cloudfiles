@@ -46,10 +46,9 @@ public class FilesResponse
      */
     public boolean loginSuccess ()
     {
-    	if (getStatusCode() == HttpStatus.SC_UNAUTHORIZED )
-    		return false;
+	int statusCode = getStatusCode();
 
-    	if (getStatusCode() == HttpStatus.SC_NO_CONTENT)    
+    	if (statusCode >= 200 && statusCode < 300)
     		return true;
 
     	return false;     
