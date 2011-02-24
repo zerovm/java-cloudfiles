@@ -12,7 +12,7 @@ public class FilesConstants
 {
     private static Logger logger = Logger.getLogger(FilesConstants.class);
     
-    public static final String USER_AGENT = "java-cloudfiles/1.7.3";
+    public static final String USER_AGENT = "java-cloudfiles/1.8.0";
     
     /** HTTP Header token that identifies the username to Cloud Files **/
     public static final String X_STORAGE_USER_DEFAULT   = "x-auth-user";
@@ -55,6 +55,8 @@ public class FilesConstants
     public static final int OBJECT_NAME_LENGTH = 1024;
     public static final int METADATA_NAME_LENGTH = 1024;
     public static final int METADATA_VALUE_LENGTH = 1024;
+    
+    public static final String X_PURGE_EMAIL = "X-Purge-Email";
     
     /** Prefix Cloud Files expects on all Meta data headers on Objects **/
     public static final String X_OBJECT_META = "X-Object-Meta-";

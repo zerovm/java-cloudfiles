@@ -1607,6 +1607,133 @@ public class FilesClient
     		throw new FilesAuthorizationException("You must be logged in", null, null);
     	}
     }
+    
+    /**
+     * Purges all items from a given container from the CDN
+     * 
+     * @param container The name of the container
+     * @param emailAddresses An optional comma separated list of email addresses to be notified when the purge is complete. 
+     *                       <code>null</code> if desired.
+     * @throws IOException Error talking to the cdn management server
+     * @throws HttpException Error with HTTP
+     * @throws FilesAuthorizationException Log in was not successful, or account is suspended 
+     * @throws FilesException Other error
+     */
+    public void purgeCDNContainer(String container, String emailAddresses) throws IOException, HttpException, FilesAuthorizationException, FilesException {
+    	if (! isLoggedin) {
+    		throw new FilesAuthorizationException("You must be logged in", null, null);
+    	}
+       	if (!isValidContainerName(container))  {
+    		throw new FilesInvalidNameException(container);
+    	}
+    	HttpDelete method = null;
+    	try {
+    		String deleteUri = cdnManagementURL + "/" + sanitizeForURI(container);
+			method = new HttpDelete(deleteUri);
+			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+			if (emailAddresses != null) {
+				method.setHeader(FilesConstants.X_PURGE_EMAIL, emailAddresses);
+			}
+		
+			FilesResponse response = new FilesResponse(client.execute(method));
+			
+			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+				method.abort();
+				if(login()) {
+					method = new HttpDelete(deleteUri);
+					method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+					method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+					if (emailAddresses != null) {
+						method.setHeader(FilesConstants.X_PURGE_EMAIL, emailAddresses);
+					}
+					response = new FilesResponse(client.execute(method));
+				}
+				else {
+					throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
+				}
+			}
+
+			if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
+			{
+				return;
+			}
+			else if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+				throw new FilesAuthorizationException("User not Authorized!",response.getResponseHeaders(), response.getStatusLine());
+			}
+			else {
+				throw new FilesException("Unexpected server response",response.getResponseHeaders(), response.getStatusLine());
+			}
+		}
+		finally {
+			if (method != null) method.abort();
+		}
+
+    }
+
+    /**
+     * Purges all items from a given container from the CDN
+     * 
+     * @param container The name of the container
+     * @param object The name of the object
+     * @param emailAddresses An optional comma separated list of email addresses to be notified when the purge is complete. 
+     *                       <code>null</code> if desired.
+     * @throws IOException Error talking to the cdn management server
+     * @throws HttpException Error with HTTP
+     * @throws FilesAuthorizationException Log in was not successful, or account is suspended 
+     * @throws FilesException Other error
+     */
+    public void purgeCDNObject(String container, String object, String emailAddresses) throws IOException, HttpException, FilesAuthorizationException, FilesException {
+    	if (! isLoggedin) {
+    		throw new FilesAuthorizationException("You must be logged in", null, null);
+    	}
+       	if (!isValidContainerName(container))  {
+    		throw new FilesInvalidNameException(container);
+    	}
+    	HttpDelete method = null;
+    	try {
+    		String deleteUri = cdnManagementURL + "/" + sanitizeForURI(container) +"/"+sanitizeForURI(object);
+			method = new HttpDelete(deleteUri);
+			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+			if (emailAddresses != null) {
+				method.setHeader(FilesConstants.X_PURGE_EMAIL, emailAddresses);
+			}
+		
+			FilesResponse response = new FilesResponse(client.execute(method));
+			
+			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+				method.abort();
+				if(login()) {
+					method = new HttpDelete(deleteUri);
+					method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+					method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+					if (emailAddresses != null) {
+						method.setHeader(FilesConstants.X_PURGE_EMAIL, emailAddresses);
+					}
+					response = new FilesResponse(client.execute(method));
+				}
+				else {
+					throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
+				}
+			}
+
+			if (response.getStatusCode() == HttpStatus.SC_NO_CONTENT)
+			{
+				return;
+			}
+			else if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+				throw new FilesAuthorizationException("User not Authorized!",response.getResponseHeaders(), response.getStatusLine());
+			}
+			else {
+				throw new FilesException("Unexpected server response",response.getResponseHeaders(), response.getStatusLine());
+			}
+		}
+		finally {
+			if (method != null) method.abort();
+		}
+
+    }
 
     /**
      * Gets list of all of the containers associated with this account.

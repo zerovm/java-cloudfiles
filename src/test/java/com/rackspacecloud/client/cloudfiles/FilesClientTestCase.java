@@ -1572,6 +1572,31 @@ public class FilesClientTestCase extends TestCase {
 		
 	}
 	
+	public void testCDNPurge() {
+		String containerName = createTempContainerName("cdnPurgeTest");
+		try {
+			FilesClient client = new FilesClient();
+			// client.setUseETag(false);
+			assertTrue(client.login());
+			
+			// Set up
+			client.createContainer(containerName);
+			String cdnUrl = client.cdnEnableContainer(containerName); 
+			assertNotNull(cdnUrl);
+			
+			client.purgeCDNContainer(containerName, "lowell.vaughn@rackspace.com");
+			client.purgeCDNContainer(containerName, null);
+			client.purgeCDNObject(containerName, "object.txt", "lowell.vaughn@rackspace.com");
+	
+			assertTrue(client.deleteContainer(containerName));
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail(e.getMessage());
+		} 
+		
+	}
+	
 	public void testCDNContainerFullListingAll() {
 		FilesClient client = new FilesClient();
 		try {
