@@ -292,6 +292,19 @@ public class FilesResponse
     }
 
     /**
+     * Get the SSL URL For a shared container
+     * 
+     * @return null if the header is not present or the correct value as defined by the header
+     */
+    public String getCdnSslUrl ()
+    {
+        Header cdnHeader = getResponseHeader (FilesConstants.X_CDN_SSL_URI);
+        if (cdnHeader != null )
+          return cdnHeader.getValue();
+        return null;
+    }
+
+    /**
      * Returns the response headers with the given name. Note that header-name matching is case insensitive.
      *
      * @param headerName - the name of the headers to be returned.

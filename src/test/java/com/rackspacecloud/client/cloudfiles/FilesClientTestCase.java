@@ -1526,6 +1526,7 @@ public class FilesClientTestCase extends TestCase {
 			assertEquals(5, containers.size());
 			for (int i=0; i < 5; i++) {
 				assertEquals(originalContainers.get(i), containers.get(i).getName());
+				assertNotNull(containers.get(i).getSSLURL());
 			}
 			
 			// Now check out a marker

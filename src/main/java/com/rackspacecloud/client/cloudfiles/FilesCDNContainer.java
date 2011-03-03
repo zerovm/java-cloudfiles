@@ -13,6 +13,7 @@ public class FilesCDNContainer {
 	private String referrerACL;
 	private int ttl;
 	private String cdnURL;
+	private String sslURL = null;
 	private String name;
 	private boolean retainLogs;
 	
@@ -35,6 +36,11 @@ public class FilesCDNContainer {
 	
 	public FilesCDNContainer(String cdnURL) {
 		this.cdnURL = cdnURL;
+	}
+	
+	public FilesCDNContainer(String cdnURL, String sslUrl) {
+		this.cdnURL = cdnURL;
+		this.sslURL = sslUrl;
 	}
 	
 	public FilesCDNContainer(String name, boolean enabled, int ttl, boolean retainLogs) {
@@ -120,6 +126,21 @@ public class FilesCDNContainer {
 	 */
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	/**
+	 * @return The URL for accessing content in this container via the CDN
+	 */
+	public String getSSLURL() {
+		return sslURL;
+	}
+
+	/**
+	 * 
+	 * @param sslURL the sslURL to set
+	 */
+	void setSSLURL(String sslURL) {
+		this.sslURL = sslURL;
 	}
 
 

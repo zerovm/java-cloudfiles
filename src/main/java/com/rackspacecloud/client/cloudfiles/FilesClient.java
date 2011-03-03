@@ -1832,8 +1832,11 @@ public class FilesClient
      	    				if ("name".equals(data.getNodeName())) {
      	    					container.setName(data.getTextContent());
      	    				}
-     	    				else if ("cdn_url".equals(data.getNodeName())) {
+    	    				else if ("cdn_url".equals(data.getNodeName())) {
      	    					container.setCdnURL(data.getTextContent());
+     	    				}
+    	    				else if ("cdn_ssl_url".equals(data.getNodeName())) {
+     	    					container.setSSLURL(data.getTextContent());
      	    				}
      	    				else if ("cdn_enabled".equals(data.getNodeName())) {
      	    					container.setEnabled(Boolean.parseBoolean(data.getTextContent()));
