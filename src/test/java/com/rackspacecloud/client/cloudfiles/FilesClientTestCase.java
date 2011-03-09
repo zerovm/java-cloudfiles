@@ -1585,7 +1585,7 @@ public class FilesClientTestCase extends TestCase {
 			String cdnUrl = client.cdnEnableContainer(containerName); 
 			assertNotNull(cdnUrl);
 			
-			client.purgeCDNContainer(containerName, "lowell.vaughn@rackspace.com");
+			//client.purgeCDNContainer(containerName, "lowell.vaughn@rackspace.com");
 			client.purgeCDNContainer(containerName, null);
 			client.purgeCDNObject(containerName, "object.txt", "lowell.vaughn@rackspace.com");
 	
