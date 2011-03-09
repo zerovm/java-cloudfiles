@@ -1644,6 +1644,7 @@ public class FilesClientTestCase extends TestCase {
 //			assertEquals("", info.getReferrerACL());
 			String cdnUrl = info.getCdnURL();
 			assertNotNull(cdnUrl);
+			assertNotNull(info.getSSLURL());
 			
 			client.cdnUpdateContainer(containerName, 31415, false, true);
 			assertFalse(client.isCDNEnabled(containerName));

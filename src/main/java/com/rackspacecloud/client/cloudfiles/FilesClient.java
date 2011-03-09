@@ -1325,6 +1325,7 @@ public class FilesClient
     				{
     					FilesCDNContainer result = new FilesCDNContainer(response.getCdnUrl());
     					result.setName(container);
+    					result.setSSLURL(response.getCdnSslUrl());
     					for (Header hdr : response.getResponseHeaders()) { 
     						String name = hdr.getName().toLowerCase();
     						if ("x-cdn-enabled".equals(name)) {
