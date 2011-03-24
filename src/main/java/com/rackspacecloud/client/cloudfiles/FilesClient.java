@@ -1447,21 +1447,6 @@ public class FilesClient
     	}
     }
     
-   /* *
-     * Not currently used (but soon will be)
-     * @param container
-     */    
- //   public void purgeCDNContainer(String container) { 
-///    	// Stub
-//    }
-    
-    /* *
-     * Not currently used (but soon will be)
-     * @param container
-     */
-//   public void purgeCDNObject(String container, String object) { 
- //   	// Stub
-//    }
     
     /**
      * Creates a path (but not any of the sub portions of the path)
@@ -1693,7 +1678,7 @@ public class FilesClient
     	}
     	HttpDelete method = null;
     	try {
-    		String deleteUri = cdnManagementURL + "/" + sanitizeForURI(container) +"/"+sanitizeForURI(object);
+    		String deleteUri = cdnManagementURL + "/" + sanitizeForURI(container) +"/"+sanitizeAndPreserveSlashes(object);
 			method = new HttpDelete(deleteUri);
 			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
 			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
@@ -2712,9 +2697,19 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
     public static String sanitizeForURI(String str) {
     	URLCodec codec= new URLCodec();
     	try {
-    		//return codec.encode(str).replaceAll("\\+", "%20").replaceAll("%2F", "/");
     		return codec.encode(str).replaceAll("\\+", "%20");
     	}
+    	catch (EncoderException ee) {
+    		logger.warn("Error trying to encode string for URI", ee);
+    		return str;
+    	}
+    }
+    
+    public static String sanitizeAndPreserveSlashes(String str) {
+    	URLCodec codec= new URLCodec();
+    	try {
+    		return codec.encode(str).replaceAll("\\+", "%20").replaceAll("%2F", "/");
+     	}
     	catch (EncoderException ee) {
     		logger.warn("Error trying to encode string for URI", ee);
     		return str;
