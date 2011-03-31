@@ -48,6 +48,8 @@ public class FilesConstants
     public static final String X_CDN_REFERRER_ACL = "X-Referrer-ACL ";
     /** HTTP Header used by Cloud Files for the MD5Sum of the object being created in a Container **/
     public static final String E_TAG = "ETag";
+    /** HTTP Header used for Object Manifest **/
+    public static final String MANIFEST_HEADER = "X-Object-Manifest";
     /** These constants are used for performing queries on the content of a container **/
     public static final String LIST_CONTAINER_NAME_QUERY = "prefix";
     public static final String LIST_CONTAINER_LIMIT_OBJ_COUNT_QUERY = "limit";
