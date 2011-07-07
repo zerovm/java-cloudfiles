@@ -1890,6 +1890,136 @@ public class FilesClient
     		throw new FilesAuthorizationException("You must be logged in", null, null);
     	}
     }
+    /**
+     * Create a manifest on the server, including metadata
+     * 
+     * @param container   The name of the container
+     * @param obj         The File containing the file to copy over
+     * @param contentType The MIME type of the file
+     * @param name        The name of the file on the server
+     * @param manifest    Set manifest content here
+     * @param callback    The object to which any callbacks will be sent (null if you don't want callbacks)
+     * @throws IOException   There was an IO error doing network communication
+     * @throws HttpException There was an error with the http protocol
+     * @throws FilesException 
+     */
+    public boolean createManifestObject(String container, String contentType, String name, String manifest, IFilesTransferCallback callback) throws IOException, HttpException, FilesException
+    {
+    	return createManifestObject(container, contentType, name, manifest, new HashMap<String, String>(), callback);
+    }
+    /**
+     * Create a manifest on the server, including metadata
+     * 
+     * @param container   The name of the container
+     * @param obj         The File containing the file to copy over
+     * @param contentType The MIME type of the file
+     * @param name        The name of the file on the server
+     * @param manifest    Set manifest content here
+     * @param metadata    A map with the metadata as key names and values as the metadata values
+     * @throws IOException   There was an IO error doing network communication
+     * @throws HttpException There was an error with the http protocol
+     * @throws FilesException 
+     */
+    public boolean createManifestObject(String container, String contentType, String name, String manifest, Map<String,String> metadata) throws IOException, HttpException, FilesException
+    {
+    	return createManifestObject(container, contentType, name, manifest, metadata, null);
+    }
+    /**
+     * Create a manifest on the server, including metadata
+     * 
+     * @param container   The name of the container
+     * @param obj         The File containing the file to copy over
+     * @param contentType The MIME type of the file
+     * @param name        The name of the file on the server
+     * @param manifest    Set manifest content here
+     * @param metadata    A map with the metadata as key names and values as the metadata values
+     * @param callback    The object to which any callbacks will be sent (null if you don't want callbacks)
+     * @throws IOException   There was an IO error doing network communication
+     * @throws HttpException There was an error with the http protocol
+     * @throws FilesException 
+     */
+    public boolean createManifestObject(String container, String contentType, String name, String manifest, Map<String,String> metadata, IFilesTransferCallback callback) throws IOException, HttpException, FilesException
+    {
+    	byte[] arr = new byte[0];
+    	if (this.isLoggedin())
+    	{
+    		String objName	 =  name;
+    		if (isValidContainerName(container) && isValidObjectName(objName))
+    		{
+
+    			HttpPut method = null;
+    			try {
+    				method = new HttpPut(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+    				method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    				method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			    method.setHeader(FilesConstants.MANIFEST_HEADER, manifest);
+    				ByteArrayEntity entity = new ByteArrayEntity (arr);
+    				entity.setContentType(contentType);
+    				method.setEntity(new RequestEntityWrapper(entity, callback));
+    				for(String key : metadata.keySet()) {
+    					// logger.warn("Key:" + key + ":" + sanitizeForURI(metadata.get(key)));
+    					method.setHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
+    				}
+    				
+    				FilesResponse response = new FilesResponse(client.execute(method));
+
+    				if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+    					method.abort();
+    					if(login()) {
+    						method = new HttpPut(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
+    						method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
+    						method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    						if (manifest != null){
+    	    					method.setHeader(FilesConstants.MANIFEST_HEADER, manifest);
+    	    				}    						
+    		   				entity = new ByteArrayEntity (arr);
+    	    				entity.setContentType(contentType);
+    						method.setEntity(new RequestEntityWrapper(entity, callback));
+    						for(String key : metadata.keySet()) {
+    							method.setHeader(FilesConstants.X_OBJECT_META + key, sanitizeForURI(metadata.get(key)));
+    						}
+    						response = new FilesResponse(client.execute(method));
+    					}
+    					else {
+    						throw new FilesAuthorizationException("Re-login failed", response.getResponseHeaders(), response.getStatusLine());
+    					}
+    				}
+
+    				if (response.getStatusCode() == HttpStatus.SC_CREATED)
+    				{
+    					return true;
+    				}
+    				else if (response.getStatusCode() == HttpStatus.SC_PRECONDITION_FAILED)
+    				{
+    					throw new FilesException("Etag missmatch", response.getResponseHeaders(), response.getStatusLine());
+    				}
+    				else if (response.getStatusCode() == HttpStatus.SC_LENGTH_REQUIRED)
+    				{
+    					throw new FilesException("Length miss-match", response.getResponseHeaders(), response.getStatusLine());
+    				}
+    				else 
+    				{
+    					throw new FilesException("Unexpected Server Response", response.getResponseHeaders(), response.getStatusLine());
+    				}
+    			}
+    			finally{
+    				if (method != null) method.abort();
+    			}
+    		}
+    		else
+    		{
+    			if (!isValidObjectName(objName)) {
+    				throw new FilesInvalidNameException(objName);
+    			}
+    			else {
+    				throw new FilesInvalidNameException(container);
+    			}
+    		}
+    	}
+    	else {       		
+    		throw new FilesAuthorizationException("You must be logged in", null, null);
+    	}
+    }
 
     /**
      * Store a file on the server
@@ -2910,9 +3040,25 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
     /**
      * @param config
      */
- 
-		public boolean updateObjectMetadata(String container, String object, 
+	public boolean updateObjectManifest(String container, String object, String manifest) throws FilesAuthorizationException, 
+			HttpException, IOException, FilesInvalidNameException
+			{
+		      return updateObjectMetadataAndManifest(container, object, new HashMap<String, String>(), manifest);
+			}
+	/**
+     * @param config
+     */
+	public boolean updateObjectMetadata(String container, String object, 
 			Map<String,String> metadata) throws FilesAuthorizationException, 
+			HttpException, IOException, FilesInvalidNameException
+			{
+			    return updateObjectMetadataAndManifest(container, object, metadata, null);
+			}
+	/**
+     * @param config
+     */
+		public boolean updateObjectMetadataAndManifest(String container, String object, 
+			Map<String,String> metadata, String manifest) throws FilesAuthorizationException, 
 			HttpException, IOException, FilesInvalidNameException {
 			FilesResponse response;
 			
@@ -2920,7 +3066,6 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
 	       		throw new FilesAuthorizationException("You must be logged in", 
 	       			null, null);
 	    	}
-			
 	    	if (!isValidContainerName(container))
 	    		throw new FilesInvalidNameException(container);	
 	    	if (!isValidObjectName(object))
@@ -2932,6 +3077,9 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
 	    	HttpPost method = null;
 	    	try {
 		    	method = new HttpPost(postUrl);
+				if (manifest != null){
+					method.setHeader(FilesConstants.MANIFEST_HEADER, manifest);
+				}
 		   		method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
 		   		method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
 		   		if (!(metadata == null || metadata.isEmpty())) {
