@@ -298,6 +298,22 @@ public class FilesClient
         return this.isLoggedin;
     }
     
+
+    /**
+     * Log in to CloudFiles.  This method performs the authentication and sets up the client's internal state.
+     * 
+      * @throws IOException   There was an IO error doing network communication
+     * @throws HttpException There was an error with the http protocol
+     */
+    public boolean login(String authToken, String storageURL, String cdnManagmentUrl) throws IOException, HttpException
+    {
+    	isLoggedin   = true;
+    	this.storageURL = storageURL;
+    	this.cdnManagementURL = cdnManagmentUrl;
+    	this.authToken = authToken;
+    	return true;
+    }
+    
     /**
      * List all of the containers available in an account, ordered by container name.
      *
@@ -1712,6 +1728,7 @@ public class FilesClient
 				throw new FilesAuthorizationException("User not Authorized!",response.getResponseHeaders(), response.getStatusLine());
 			}
 			else {
+				System.out.println(response.getStatusLine());
 				throw new FilesException("Unexpected server response",response.getResponseHeaders(), response.getStatusLine());
 			}
 		}
@@ -2757,7 +2774,16 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
     /**
      * @return Get's our storage token.
      */
+    @Deprecated
     public String getStorageToken()
+    {
+    	return authToken;
+    }
+
+    /**
+     * @return Get's our storage token.
+     */
+    public String getAuthToken()
     {
     	return authToken;
     }

@@ -176,7 +176,7 @@ public class FilesClientTestCase extends TestCase {
 			//logger.error("Creating the container");
 			client.createContainer(containerName);
 			//logger.error("URL:\n" + client.getStorageURL() + "/" + containerName + "\n");
-			Thread.sleep(10000);
+			//Thread.sleep(10000);
 			
 			// See that it's there
 			assertTrue(client.containerExists(containerName));
@@ -199,6 +199,57 @@ public class FilesClientTestCase extends TestCase {
 			
 			// Make sure it's gone
 			assertFalse(client.containerExists(containerName));
+			
+
+		} catch (Exception e) {
+			fail(e.getMessage());
+		} 
+	}
+	
+	public void testAlternateLoginMethod() {
+		FilesClient client = new FilesClient();
+		try {
+			assertTrue(client.login());
+			String containerName = createTempContainerName("container");
+			
+			// Make sure it's not there
+			assertFalse(client.containerExists(containerName));
+			
+			// Add it
+			//logger.error("Creating the container");
+			client.createContainer(containerName);
+			//logger.error("URL:\n" + client.getStorageURL() + "/" + containerName + "\n");
+			Thread.sleep(1000);
+			
+			// See that it's there
+			assertTrue(client.containerExists(containerName));
+			assertNotNull(client.getContainerInfo(containerName));
+			
+			// Create a new Client
+			FilesClient newClient = new FilesClient();
+			newClient.login(client.getAuthToken(), client.getStorageURL(), client.getCdnManagementURL());
+			
+			// See that it's still there
+			assertTrue(newClient.containerExists(containerName));
+			assertNotNull(newClient.getContainerInfo(containerName));
+			
+			// Try Adding it again
+			try {
+				newClient.createContainer(containerName);
+				fail("Allowed duplicate container creation");
+			}
+			catch (FilesContainerExistsException fcee) {
+				// Hooray!
+			}
+			
+			// See that it's still there
+			assertTrue(newClient.containerExists(containerName));
+			
+			// Delete it
+			assertTrue(newClient.deleteContainer(containerName));
+			
+			// Make sure it's gone
+			assertFalse(newClient.containerExists(containerName));
 			
 
 		} catch (Exception e) {
