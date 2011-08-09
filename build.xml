@@ -128,7 +128,8 @@
 		<copy todir="${pkg-dir}/docs" >
 			<fileset dir="${doc-dir}" />
 		</copy>		
-		<copy file="run_cli.sh" todir="${pkg-dir}" />
+		<copy file="cloudfiles.bat" todir="${pkg-dir}" />
+                <copy file="cloudfiles.sh" todir="${pkg-dir}" />
 		<copy file="cloudfiles.properties" todir="${pkg-dir}" />
 		<copy file="log4j.properties" todir="${pkg-dir}" />
 		<copy file="COPYING" todir="${pkg-dir}" />
