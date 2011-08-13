@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import org.apache.http.HttpException;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.commons.io.FilenameUtils;
@@ -900,8 +901,135 @@ public class FilesClientTestCase extends TestCase {
 		}
 		
 	}
-	
-	public void testContainerListing() {
+
+    public void testCopyObject() throws Exception {
+        String containerSrc = createTempContainerName("copy-source");
+        String containerDest = createTempContainerName("copy-dest");
+        doTestCopyObject(containerSrc, containerDest);
+    }
+
+    public void testCopyObjectSameContainer() throws Exception {
+        String containerSrc = createTempContainerName("copy-source1");
+        doTestCopyObject(containerSrc, containerSrc);
+    }
+
+    public void testCopyObjectNoDestContainer() throws Exception {
+        String containerSrc = createTempContainerName("copy-source2");
+        String containerDest = null;
+
+        try {
+            System.err.println("-- expected 404 exception below --");
+            doTestCopyObject(containerSrc, containerDest);
+            fail("exception expected");
+
+        } catch (FilesException fe) {
+            assertEquals(404, fe.getHttpStatusCode());
+        }
+    }
+
+    public void doTestCopyObject(String containerSrc, String containerDest)
+        throws Exception {
+        String filename = makeFileName("copy");
+        String fullPath = FilenameUtils.concat(SYSTEM_TMP.getAbsolutePath(),
+                                               filename);
+        logger.info("Test Copy File Location: " + fullPath);
+        try {
+            byte randomData[] = makeRandomFile(fullPath);
+            FilesClient client = new FilesClient();
+            assertTrue(client.login());
+
+            // Set up
+            client.createContainer(containerSrc);
+            if (null != containerDest && !containerSrc.equals(containerDest)) {
+                client.createContainer(containerDest);
+            }
+
+            // Store it
+            logger.info("About to save: " + filename);
+            String mime = "application/octet-stream";
+            assertNotNull(client.storeObjectAs(containerSrc,
+                                               new File(fullPath),
+                                               mime,
+                                               filename));
+
+            verifyStoredObject(containerSrc,
+                               filename,
+                               mime,
+                               randomData,
+                               client);
+
+            // Do the copy
+            logger.info("About to copy: " + filename);
+            String dest = null == containerDest ? "not-exist" : containerDest;
+            String etag = client.copyObject(containerSrc,
+                                            filename,
+                                            dest,
+                                            filename);
+
+            String md5 = FilesClient.md5Sum(randomData);
+            assertEquals(md5, etag);
+
+            verifyStoredObject(containerDest,
+                               filename,
+                               mime,
+                               randomData,
+                               client);
+
+            // Clean up
+            client.deleteObject(containerSrc, filename);
+            assertTrue(client.deleteContainer(containerSrc));
+            if (null != containerDest && !containerSrc.equals(containerDest)) {
+                client.deleteObject(containerDest, filename);
+                assertTrue(client.deleteContainer(containerDest));
+            }
+
+        } catch (FilesException fe) {
+            System.err.println(fe.getHttpHeadersAsString());
+            System.err.println(fe.getHttpStatusMessage());
+            System.err.println(fe.getHttpStatusCode());
+            System.err.println(fe.getMessage());
+            fe.printStackTrace();
+            throw fe;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println(e.getMessage());
+            throw e;
+
+        } finally {
+            File f = new File(fullPath);
+            f.delete();
+        }
+    }
+
+    private void verifyStoredObject(String container,
+                                    String objName,
+                                    String mime,
+                                    byte[] data,
+                                    FilesClient client)
+        throws IOException, HttpException {
+
+        // Make sure it's there
+        List<FilesObject> objects = client.listObjects(container);
+        assertEquals(1, objects.size());
+        FilesObject obj = objects.get(0);
+        assertEquals(objName, obj.getName());
+        assertEquals(mime, obj.getMimeType());
+
+        // Make sure the data is correct
+        assertArrayEquals(data, client.getObject(container, objName));
+
+        // Make sure the data is correct as a stream
+        InputStream is = client.getObjectAsStream(container, objName);
+        byte otherData[] = new byte[NUMBER_RANDOM_BYTES];
+        is.read(otherData);
+        assertArrayEquals(data, otherData);
+
+        // Could hang if there's a bug on the other end
+        assertEquals(-1, is.read());
+    }
+
+    public void testContainerListing() {
 		String containerName = createTempContainerName("<container>");
 		String filename = makeFileName("<object>");
 		String fullPath = FilenameUtils.concat(SYSTEM_TMP.getAbsolutePath(), filename);

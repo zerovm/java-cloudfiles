@@ -32,6 +32,7 @@ import org.apache.commons.lang.text.StrTokenizer;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpException;
+import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
@@ -2445,6 +2446,96 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
     	else {       		
     		throw new FilesAuthorizationException("You must be logged in", null, null);
     	}
+    }
+
+    /**
+     * This method copies the object found in the source container with the
+     * source object name to the destination container with the destination
+     * object name.
+     * @param sourceContainer of object to copy
+     * @param sourceObjName of object to copy
+     * @param destContainer where object copy will be copied
+     * @param destObjName of object copy
+     * @return ETAG if successful, else null
+     * @throws IOException indicates a socket level error talking to CloudFiles
+     * @throws HttpException indicates a protocol level error talking to CloudFiles
+     * @throws FilesException indicates an error talking to CloudFiles
+     */
+    public String copyObject(String sourceContainer,
+                             String sourceObjName,
+                             String destContainer,
+                             String destObjName)
+        throws HttpException, IOException {
+        String etag = null;
+        if (this.isLoggedin()) {
+
+            if (isValidContainerName(sourceContainer) &&
+                isValidObjectName(sourceObjName) &&
+                isValidContainerName(destContainer) &&
+                isValidObjectName(destObjName)) {
+
+                HttpPut method = null;
+                try {
+                    String sourceURI = sanitizeForURI(sourceContainer) +
+                        "/" + sanitizeForURI(sourceObjName);
+                    String destinationURI = sanitizeForURI(destContainer) +
+                        "/" + sanitizeForURI(destObjName);
+
+                    method = new HttpPut(storageURL + "/" + destinationURI);
+                    method.getParams().setIntParameter("http.socket.timeout",
+                                                       connectionTimeOut);
+                    method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+                    method.setHeader(FilesConstants.X_COPY_FROM, sourceURI);
+
+                    FilesResponse response = new FilesResponse(client.execute(
+                        method));
+
+                    if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+                        method.abort();
+
+                        login();
+                        method = new HttpPut(storageURL + "/" + destinationURI);
+                        method.getParams().setIntParameter("http.socket.timeout",
+                                                           connectionTimeOut);
+                        method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+                        method.setHeader(FilesConstants.X_COPY_FROM, sourceURI);
+
+                        response = new FilesResponse(client.execute(method));
+                    }
+
+                    if (response.getStatusCode() == HttpStatus.SC_CREATED) {
+                        etag = response.getResponseHeader(FilesConstants.E_TAG)
+                            .getValue();
+
+                    } else {
+                        throw new FilesException("Unexpected status from server",
+                                                 response.getResponseHeaders(),
+                                                 response.getStatusLine());
+                    }
+
+                } finally {
+                    if (method != null) {
+                        method.abort();
+                    }
+                }
+            } else {
+                if (!isValidContainerName(sourceContainer)) {
+                    throw new FilesInvalidNameException(sourceContainer);
+                } else if (!isValidObjectName(sourceObjName)) {
+                    throw new FilesInvalidNameException(sourceObjName);
+                } else if (!isValidContainerName(destContainer)) {
+                    throw new FilesInvalidNameException(destContainer);
+                } else {
+                    throw new FilesInvalidNameException(destObjName);
+                }
+            }
+        } else {
+            throw new FilesAuthorizationException("You must be logged in",
+                                                  null,
+                                                  null);
+        }
+
+        return etag;
     }
 
     /**
