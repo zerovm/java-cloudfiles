@@ -46,6 +46,8 @@ public class FilesConstants
     public static final String X_CDN_USER_AGENT_ACL = "X-User-Agent-ACL";
     /** HTTP header token that is returned by calls to the CDN Management API **/
     public static final String X_CDN_REFERRER_ACL = "X-Referrer-ACL ";
+    /** HTTP header used by Cloud Files for the source of an object being copied. The value of this header is /<sourcecontainer>/<sourceobject> **/
+    public static final String X_COPY_FROM = "X-Copy-From";
     /** HTTP Header used by Cloud Files for the MD5Sum of the object being created in a Container **/
     public static final String E_TAG = "ETag";
     /** HTTP Header used for Object Manifest **/
