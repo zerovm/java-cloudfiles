@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -42,23 +43,8 @@ public class FilesCli {
 			
 			System.out.print("Password: ");
 			String password = console.readLine().trim();
-
-			System.out.print("Account (return if using Mosso directly): ");
-			String account = console.readLine().trim();
 			
-			if (account.length() == 0) {
-				account = null;
-			}
-			
-			client = new FilesClient(username, password, account);
-			boolean result =  client.login();
-			
-			if (result) {
-				System.out.println("Logged in!");
-			}
-			else {
-				System.out.println("Login failed");
-			}
+			final boolean result = doLogin(username, password);			
 			
 			return result;
 		} catch (Exception e) {
@@ -68,6 +54,11 @@ public class FilesCli {
 		}
 		
 
+	}
+	
+	private boolean doLogin(final String username, final String password) throws Exception {		
+		client = new FilesClient(username, password);
+		return client.login();		
 	}
 	
 	private static final String HELP_STRING = 
@@ -93,9 +84,16 @@ public class FilesCli {
 			System.out.println(HELP_STRING);
 			return true;
 		}
+		return evaluateCommand(components);
+	}
+	
+	private boolean evaluateCommand(String[] components) {
 		
 		String command = components[0].toLowerCase();
 		
+		if ("help".equals(command)) {
+			System.out.println(HELP_STRING);
+		}
 		// Exit
 		if("exit".equals(command) || "quit".equals(command)) {
 			System.out.println("Exiting");
@@ -362,17 +360,85 @@ public class FilesCli {
 		}
 		
 		// We should never get here
-		System.out.println("Unrecognized command " + cmd);
+		System.out.println("Unrecognized command " + command);
 		System.out.println(HELP_STRING);
 		return true;
 	}
 	
 
+	public static class CommandLineOptions {
+		public final String userName;
+		public final String password;
+		public final String[] command;
+		
+		public CommandLineOptions(String[] args) {
+			String userName = null;
+			String password = null;
+			List<String> command = new ArrayList<String>();
+			userName = System.getenv("CLOUDFILES_USERNAME");
+			password = System.getenv("CLOUDFILES_PASSWORD");
+			for (int i = 0; i < args.length; i ++) {		
+				if ("username".equals(args[i])) {
+					if (i >= args.length - 1) {
+						throw new RuntimeException("No argument following option 'username'.");
+					}
+					userName = args[i + 1];
+					i ++;
+				} else if ("password".equals(args[i])) {
+					if (i >= args.length - 1) {
+						throw new RuntimeException("No argument following option 'password'.");
+					}
+					password = args[i + 1];
+					i ++;
+				} else {
+					command.add(args[i]);
+				}
+			}
+			if (userName == null) {
+				throw new RuntimeException("No username specified (use option 'username' or set CLOUDFILES_USERNAME environment variable).");
+			}
+			if (password == null) {
+				throw new RuntimeException("No password specified (use option 'password' or set CLOUDFILES_PASSWORD environment variable).");
+			}
+			this.userName = userName;
+			this.password = password;
+			this.command = new String[command.size()];
+			command.toArray(this.command);
+		}
+		
+	}
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
 
+		if (args.length < 1) {
+			interactiveMode();			
+		} else {
+			parseArgs(args);
+		}
+	}
+	
+	public static void parseArgs(String[] args) {
+		try {
+			final CommandLineOptions options = new CommandLineOptions(args);
+			final FilesCli cli = new FilesCli();
+			if (!cli.doLogin(options.userName, options.password)) {
+				throw new RuntimeException("Failed to login.");
+			}
+			if (options.command.length == 0) {
+				System.out.println("Login was successful, but no other commands were specified.");
+				System.out.println(HELP_STRING);				
+			} else {
+				cli.evaluateCommand(options.command);
+			}
+		} catch(Exception e) {
+			System.err.println("Error:" + e.getMessage());
+			e.printStackTrace();
+		}
+	}
+	
+	public static void interactiveMode() {
 		FilesCli commandLine = new FilesCli();
 		
 		if (commandLine.doLogin()) {
