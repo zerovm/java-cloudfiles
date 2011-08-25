@@ -31,7 +31,7 @@ public class FilesUtil {
 	 * 
 	 * @throws IOException
 	 */
-	private static void loadPropertiesFromClasspath() throws IOException {
+	private static synchronized void loadPropertiesFromClasspath() throws IOException {
         props = new Properties();
         InputStream inputStream = FilesUtil.class.getClassLoader()
             .getResourceAsStream(file);
