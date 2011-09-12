@@ -1706,6 +1706,7 @@ public class FilesClientTestCase extends TestCase {
 			for (int i=0; i < 5; i++) {
 				assertEquals(originalContainers.get(i), containers.get(i).getName());
 				assertNotNull(containers.get(i).getSSLURL());
+				assertNotNull(containers.get(i).getStreamingURL());
 			}
 			
 			// Now check out a marker
@@ -1826,6 +1827,7 @@ public class FilesClientTestCase extends TestCase {
 			String cdnUrl = info.getCdnURL();
 			assertNotNull(cdnUrl);
 			assertNotNull(info.getSSLURL());
+			assertNotNull(info.getStreamingURL());
 			
 			client.cdnUpdateContainer(containerName, 31415, false, true);
 			assertFalse(client.isCDNEnabled(containerName));

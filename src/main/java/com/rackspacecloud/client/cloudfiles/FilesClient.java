@@ -1343,6 +1343,7 @@ public class FilesClient
     					FilesCDNContainer result = new FilesCDNContainer(response.getCdnUrl());
     					result.setName(container);
     					result.setSSLURL(response.getCdnSslUrl());
+    					result.setStreamingURL(response.getCdnStreamingUrl());
     					for (Header hdr : response.getResponseHeaders()) { 
     						String name = hdr.getName().toLowerCase();
     						if ("x-cdn-enabled".equals(name)) {
@@ -1841,6 +1842,9 @@ public class FilesClient
      	    				}
     	    				else if ("cdn_ssl_url".equals(data.getNodeName())) {
      	    					container.setSSLURL(data.getTextContent());
+     	    				}
+    	    				else if ("cdn_streaming_url".equals(data.getNodeName())) {
+     	    					container.setStreamingURL(data.getTextContent());
      	    				}
      	    				else if ("cdn_enabled".equals(data.getNodeName())) {
      	    					container.setEnabled(Boolean.parseBoolean(data.getTextContent()));
