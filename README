@@ -1,7 +1,7 @@
 In order to build:
 
 1)  Download the repository (which if you're doing this, you already have)
-2)  type "ant compile" (or "ant package if you'd like the full package)
+2)  type "ant compile" (or "ant package" if you'd like the full package)
 
 In order to run unit tests
 
