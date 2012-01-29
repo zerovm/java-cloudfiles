@@ -32,7 +32,6 @@ import org.apache.commons.lang.text.StrTokenizer;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpException;
-import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
@@ -2766,6 +2765,11 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
      */
     public InputStream getObjectAsStream (String container, String objName) throws IOException, HttpException, FilesAuthorizationException, FilesInvalidNameException, FilesNotFoundException
     {
+    	return getObjectAsStream(container, objName, null, null);
+    }
+
+    public InputStream getObjectAsStream (String container, String objName, Long byteRangeStart, Long byteRangeEnd) throws IOException, HttpException, FilesAuthorizationException, FilesInvalidNameException, FilesNotFoundException
+    {
     	if (this.isLoggedin())
     	{
     		if (isValidContainerName(container) && isValidObjectName(objName))
@@ -2788,6 +2792,16 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
     				method = new HttpGet(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
         			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
         			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+        			if (byteRangeStart != null || byteRangeEnd != null) {
+        	            String range = "bytes="
+        	                + (byteRangeStart != null? byteRangeStart.toString() : "")
+        	                + "-"
+        	                + (byteRangeEnd != null? byteRangeEnd.toString() : "");
+        	            method.setHeader("Range", range);
+        	            if (logger.isDebugEnabled()) {
+        	            	logger.debug("Only retrieve object if it is within range:" + range);
+        	            }
+        	        }
         			response = new FilesResponse(client.execute(method));
     			}
 
@@ -2819,7 +2833,6 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
     	}
     	return null;
     }
-
     /**
      * Utility function to write an InputStream to a file
      * 
@@ -3265,3 +3278,4 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
 			}
 		}
 }
+
