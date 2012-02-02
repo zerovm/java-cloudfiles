@@ -550,6 +550,72 @@ public class FilesClientTestCase extends TestCase {
 		}
 		
 	}
+	
+	public void testByteRanges() {
+		String containerName = createTempContainerName("file-test");
+		String filename = makeFileName("random");
+		String fullPath = FilenameUtils.concat(SYSTEM_TMP.getAbsolutePath(), filename);
+		logger.info("Test File Location: " + fullPath);
+		try {
+			byte randomData[] = makeRandomFile(fullPath);
+			FilesClient client = new FilesClient();
+			assertTrue(client.login());
+			
+			// Set up
+			client.createContainer(containerName);
+			
+			// Store it
+			logger.info("About to save: " + filename);
+			assertNotNull(client.storeObjectAs(containerName, new File(fullPath), "application/octet-stream", filename));
+			
+			// Make sure it's there
+			List<FilesObject> objects = client.listObjects(containerName);
+			assertEquals(1, objects.size());
+			FilesObject obj = objects.get(0);
+			assertEquals(filename, obj.getName());
+			assertEquals("application/octet-stream", obj.getMimeType());
+			
+			// Make sure the data is correct
+			assertArrayEquals(randomData, client.getObject(containerName, filename));
+			
+			// Make sure the data is correct as a stream
+			InputStream is = client.getObjectAsStream(containerName, filename);
+			byte otherData[] = new byte[NUMBER_RANDOM_BYTES];
+			is.read(otherData);
+			assertArrayEquals(randomData, otherData);
+			assertEquals(-1, is.read()); // Could hang if there's a bug on the other end
+			
+			//Get some byte ranges
+			is = client.getObjectAsStream(containerName, filename, (long) NUMBER_RANDOM_BYTES / 3, null);
+			for (int i = NUMBER_RANDOM_BYTES / 3; i < otherData.length; i++) {
+				otherData[i] = (byte) is.read();
+			}
+			assertArrayEquals(randomData, otherData);
+			assertEquals(-1, is.read()); // Could hang if there's a bug on the other end
+			
+			is = client.getObjectAsStream(containerName, filename, (long) NUMBER_RANDOM_BYTES / 2, (long) otherData.length - 2);
+			for (int i = NUMBER_RANDOM_BYTES / 2; i < (otherData.length - 2); i++) {
+				otherData[i] = (byte) is.read();
+			}
+			assertArrayEquals(randomData, otherData);
+			assertEquals(-1, is.read()); // Could hang if there's a bug on the other end
+			
+			// Clean up 
+			client.deleteObject(containerName, filename);
+			assertTrue(client.deleteContainer(containerName));
+			
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			fail(e.getMessage());
+		}
+		finally {
+			File f = new File(fullPath);
+			f.delete();
+		}
+		
+	}
+	
 	public void testSlashInName() {
 		String containerName = createTempContainerName("slashTest");
 		String filename = makeFileName("slash/backslash\\slash");
