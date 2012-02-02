@@ -2770,6 +2770,7 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
 
     public InputStream getObjectAsStream (String container, String objName, Long byteRangeStart, Long byteRangeEnd) throws IOException, HttpException, FilesAuthorizationException, FilesInvalidNameException, FilesNotFoundException
     {
+    	
     	if (this.isLoggedin())
     	{
     		if (isValidContainerName(container) && isValidObjectName(objName))
@@ -2780,10 +2781,20 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
     				objName = objName.substring(0, FilesConstants.OBJECT_NAME_LENGTH);
     				logger.warn ("Truncated Object Name is: " + objName);
     			}
-
+    			
     			HttpGet method = new HttpGet(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
     			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
     			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+    			if (byteRangeStart != null || byteRangeEnd != null) {
+    	            String range = "bytes="
+    	                + (byteRangeStart != null? byteRangeStart.toString() : "")
+    	                + "-"
+    	                + (byteRangeEnd != null? byteRangeEnd.toString() : "");
+    	            method.setHeader("Range", range);
+    	            if (logger.isDebugEnabled()) {
+    	            	logger.debug("Only retrieve object if it is within range:" + range);
+    	            }
+    	        }
     			FilesResponse response = new FilesResponse(client.execute(method));
 
       			if (response.getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
@@ -2792,6 +2803,7 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
     				method = new HttpGet(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
         			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
         			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
+        			
         			if (byteRangeStart != null || byteRangeEnd != null) {
         	            String range = "bytes="
         	                + (byteRangeStart != null? byteRangeStart.toString() : "")
@@ -2805,9 +2817,9 @@ public String storeObjectAs(String container, String name, HttpEntity entity, Ma
         			response = new FilesResponse(client.execute(method));
     			}
 
-      			if (response.getStatusCode() == HttpStatus.SC_OK)
+      			if (response.getStatusCode() == HttpStatus.SC_OK || response.getStatusCode() == HttpStatus.SC_PARTIAL_CONTENT)
     			{
-    				logger.info ("Object data retreived  : "+objName);
+    				logger.info ("Object data retreived : "+objName);
     				// DO NOT RELEASE THIS CONNECTION
     				return response.getResponseBodyAsStream();
     			}

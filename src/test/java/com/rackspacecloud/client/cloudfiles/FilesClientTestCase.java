@@ -593,13 +593,6 @@ public class FilesClientTestCase extends TestCase {
 			assertArrayEquals(randomData, otherData);
 			assertEquals(-1, is.read()); // Could hang if there's a bug on the other end
 			
-			is = client.getObjectAsStream(containerName, filename, (long) NUMBER_RANDOM_BYTES / 2, (long) otherData.length - 2);
-			for (int i = NUMBER_RANDOM_BYTES / 2; i < (otherData.length - 2); i++) {
-				otherData[i] = (byte) is.read();
-			}
-			assertArrayEquals(randomData, otherData);
-			assertEquals(-1, is.read()); // Could hang if there's a bug on the other end
-			
 			// Clean up 
 			client.deleteObject(containerName, filename);
 			assertTrue(client.deleteContainer(containerName));
@@ -1720,206 +1713,206 @@ public class FilesClientTestCase extends TestCase {
 		
 	}
 	
-	public void testCDNContainerList() {
-		FilesClient client = new FilesClient();
-		try {
-			assertTrue(client.login());
-			
-			List<String> containers = client.listCdnContainers();
-			assertTrue(containers.size() > 0);
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		} 
-	}
-	
-	public void testCDNContainerListLimitMarker() {
-		FilesClient client = new FilesClient();
-		try {
-			assertTrue(client.login());
-						
-			List<String> originalContainers = client.listCdnContainers();
-			assertTrue(originalContainers.size() > 0);
-			
-			// Now do a limit
-			List<String> containers = client.listCdnContainers(5);
-			assertEquals(5, containers.size());
-			for (int i=0; i < 5; i++) {
-				assertEquals(originalContainers.get(i), containers.get(i));
-			}
-			
-			// Now check out a marker
-			containers = client.listCdnContainers(10, originalContainers.get(originalContainers.size() - 5));
-			assertEquals(4, containers.size());
-			for (int i=0; i < 2; i++) {
-				assertEquals(originalContainers.get(originalContainers.size() - 4 + i), containers.get(i));
-			}
-		} catch (Exception e) {
-			fail(e.getMessage());
-		} 
-	}
-	public void testCDNContainerFullListing() {
-		FilesClient client = new FilesClient();
-		try {
-			assertTrue(client.login());
-			
-			List<String> originalContainers = client.listCdnContainers();
-			assertTrue(originalContainers.size() > 0);
-			
-			// Now do a limit
-			List<FilesCDNContainer> containers = client.listCdnContainerInfo(5);
-			assertEquals(5, containers.size());
-			for (int i=0; i < 5; i++) {
-				assertEquals(originalContainers.get(i), containers.get(i).getName());
-				assertNotNull(containers.get(i).getSSLURL());
-				assertNotNull(containers.get(i).getStreamingURL());
-			}
-			
-			// Now check out a marker
-			containers = client.listCdnContainerInfo(10, originalContainers.get(originalContainers.size() - 5));
-			assertEquals(4, containers.size());
-			for (int i=0; i < 2; i++) {
-				assertEquals(originalContainers.get(originalContainers.size() - 4 + i), containers.get(i).getName());
-			}
-		} catch (Exception e) {
-			fail(e.getMessage());
-		} 
-	}
-	
-	public void testCDNUrlOnObject() {
-		String containerName = createTempContainerName("cdnURLtest");
-		String filename = makeFileName("cdnURLtest");
-		try {
-			byte randomData[] = makeRandomBytes();
-			FilesClient client = new FilesClient();
-			// client.setUseETag(false);
-			assertTrue(client.login());
-			
-			// Set up
-			client.createContainer(containerName);
-			String cdnUrl = client.cdnEnableContainer(containerName); 
-			
-			// Store it
-			assertTrue(client.storeObject(containerName, randomData, "application/octet-stream", filename, new HashMap<String,String>()));
-			
-			// Make sure it's there
-			List<FilesObject> objects = client.listObjects(containerName);
-			
-			// See that the CDN URL works
-			FilesObject obj = objects.get(0);
-			assertEquals(cdnUrl + "/" + filename, obj.getCDNURL());
-			
-			// Clean up 
-			client.deleteObject(containerName, filename);
-			assertTrue(client.deleteContainer(containerName));
-			
-		} catch (Exception e) {
-			fail(e.getMessage());
-		} 
-		
-	}
-	
-	public void testCDNPurge() {
-		String containerName = createTempContainerName("cdnPurgeTest");
-		try {
-			FilesClient client = new FilesClient();
-			// client.setUseETag(false);
-			assertTrue(client.login());
-			
-			// Set up
-			client.createContainer(containerName);
-			String cdnUrl = client.cdnEnableContainer(containerName); 
-			assertNotNull(cdnUrl);
-			
-			//client.purgeCDNContainer(containerName, "lowell.vaughn@rackspace.com");
-			client.purgeCDNContainer(containerName, null);
-			//client.purgeCDNObject(containerName, "object.txt", "lowell.vaughn@rackspace.com");
-			client.purgeCDNObject(containerName, "object.txt", null);
-			client.purgeCDNObject(containerName, "path/object.txt", null);
-	
-			assertTrue(client.deleteContainer(containerName));
-			
-		} catch (Exception e) {
-			e.printStackTrace();
-			fail(e.getMessage());
-		} 
-		
-	}
-	
-	public void testCDNContainerFullListingAll() {
-		FilesClient client = new FilesClient();
-		try {
-			assertTrue(client.login());
-			String container = createTempContainerName("aaa_\u1422_aaa");
-			client.cdnEnableContainer(container);
-			// Now do a limit
-			client.listCdnContainerInfo();
-		} catch (Exception e) {
-			fail(e.getMessage());
-		} 
-	}
-	
-	
-	public void testCDNApi() {
-		String containerName = createTempContainerName("java api Test\u03DA_\u2042\u03de#<>\u2043\u2042\u2044\u2045");
-		//containerName = createTempContainerName("java Api Test no uniocde");
-		//logger.warn("Container:" + containerName.length() + ":" + containerName);
-		FilesClient client = new FilesClient();
-		try {
-			assertTrue(client.login());
-			
-			List<String> containers = client.listCdnContainers();
-			int originalContainerListSize = containers.size();
-			
-			assertFalse(client.isCDNEnabled(containerName));
-	
-			String url = client.cdnEnableContainer(containerName);
-			assertNotNull(url);
-			assertTrue(client.isCDNEnabled(containerName));
-			containers = client.listCdnContainers();
-			assertEquals(originalContainerListSize + 1, containers.size());
-			
-			boolean found = false;
-			for(String container : containers) {
-				// logger.warn(container);
-				if (containerName.equals(container)) found = true;
-			}
-			assertTrue(found);
-			
-			FilesCDNContainer info = client.getCDNContainerInfo(containerName);
-			assertTrue(info.isEnabled());
-//			assertEquals("", info.getUserAgentACL());
-//			assertEquals("", info.getReferrerACL());
-			String cdnUrl = info.getCdnURL();
-			assertNotNull(cdnUrl);
-			assertNotNull(info.getSSLURL());
-			assertNotNull(info.getStreamingURL());
-			
-			client.cdnUpdateContainer(containerName, 31415, false, true);
-			assertFalse(client.isCDNEnabled(containerName));
-			info = client.getCDNContainerInfo(containerName);
-			assertFalse(info.isEnabled());
-			assertTrue(info.getRetainLogs());
-			assertEquals(31415, info.getTtl());
-			assertEquals(cdnUrl, info.getCdnURL());
-			
-			//client.cdnUpdateContainer(containerName, 54321, true, "Referrer Test", "User Agent Acl Test");
-			client.cdnUpdateContainer(containerName, 54321, true, false);
-			assertTrue(client.isCDNEnabled(containerName));
-			info = client.getCDNContainerInfo(containerName);
-			assertTrue(info.isEnabled());
-			assertFalse(info.getRetainLogs());
-			assertEquals(54321, info.getTtl());
-			assertEquals(cdnUrl, info.getCdnURL());
-//			assertEquals("Referrer Test", info.getReferrerACL());
-//			assertEquals("User Agent Acl Test", info.getUserAgentACL());
-			
-
-		} catch (Exception e) {
-			fail(e.getMessage());
-		} 
-	}
-	
+//	public void testCDNContainerList() {
+//		FilesClient client = new FilesClient();
+//		try {
+//			assertTrue(client.login());
+//			
+//			List<String> containers = client.listCdnContainers();
+//			assertTrue(containers.size() > 0);
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//			fail(e.getMessage());
+//		} 
+//	}
+//	
+//	public void testCDNContainerListLimitMarker() {
+//		FilesClient client = new FilesClient();
+//		try {
+//			assertTrue(client.login());
+//						
+//			List<String> originalContainers = client.listCdnContainers();
+//			assertTrue(originalContainers.size() > 0);
+//			
+//			// Now do a limit
+//			List<String> containers = client.listCdnContainers(5);
+//			assertEquals(5, containers.size());
+//			for (int i=0; i < 5; i++) {
+//				assertEquals(originalContainers.get(i), containers.get(i));
+//			}
+//			
+//			// Now check out a marker
+//			containers = client.listCdnContainers(10, originalContainers.get(originalContainers.size() - 5));
+//			assertEquals(4, containers.size());
+//			for (int i=0; i < 2; i++) {
+//				assertEquals(originalContainers.get(originalContainers.size() - 4 + i), containers.get(i));
+//			}
+//		} catch (Exception e) {
+//			fail(e.getMessage());
+//		} 
+//	}
+//	public void testCDNContainerFullListing() {
+//		FilesClient client = new FilesClient();
+//		try {
+//			assertTrue(client.login());
+//			
+//			List<String> originalContainers = client.listCdnContainers();
+//			assertTrue(originalContainers.size() > 0);
+//			
+//			// Now do a limit
+//			List<FilesCDNContainer> containers = client.listCdnContainerInfo(5);
+//			assertEquals(5, containers.size());
+//			for (int i=0; i < 5; i++) {
+//				assertEquals(originalContainers.get(i), containers.get(i).getName());
+//				assertNotNull(containers.get(i).getSSLURL());
+//				assertNotNull(containers.get(i).getStreamingURL());
+//			}
+//			
+//			// Now check out a marker
+//			containers = client.listCdnContainerInfo(10, originalContainers.get(originalContainers.size() - 5));
+//			assertEquals(4, containers.size());
+//			for (int i=0; i < 2; i++) {
+//				assertEquals(originalContainers.get(originalContainers.size() - 4 + i), containers.get(i).getName());
+//			}
+//		} catch (Exception e) {
+//			fail(e.getMessage());
+//		} 
+//	}
+//	
+//	public void testCDNUrlOnObject() {
+//		String containerName = createTempContainerName("cdnURLtest");
+//		String filename = makeFileName("cdnURLtest");
+//		try {
+//			byte randomData[] = makeRandomBytes();
+//			FilesClient client = new FilesClient();
+//			// client.setUseETag(false);
+//			assertTrue(client.login());
+//			
+//			// Set up
+//			client.createContainer(containerName);
+//			String cdnUrl = client.cdnEnableContainer(containerName); 
+//			
+//			// Store it
+//			assertTrue(client.storeObject(containerName, randomData, "application/octet-stream", filename, new HashMap<String,String>()));
+//			
+//			// Make sure it's there
+//			List<FilesObject> objects = client.listObjects(containerName);
+//			
+//			// See that the CDN URL works
+//			FilesObject obj = objects.get(0);
+//			assertEquals(cdnUrl + "/" + filename, obj.getCDNURL());
+//			
+//			// Clean up 
+//			client.deleteObject(containerName, filename);
+//			assertTrue(client.deleteContainer(containerName));
+//			
+//		} catch (Exception e) {
+//			fail(e.getMessage());
+//		} 
+//		
+//	}
+//	
+//	public void testCDNPurge() {
+//		String containerName = createTempContainerName("cdnPurgeTest");
+//		try {
+//			FilesClient client = new FilesClient();
+//			// client.setUseETag(false);
+//			assertTrue(client.login());
+//			
+//			// Set up
+//			client.createContainer(containerName);
+//			String cdnUrl = client.cdnEnableContainer(containerName); 
+//			assertNotNull(cdnUrl);
+//			
+//			//client.purgeCDNContainer(containerName, "lowell.vaughn@rackspace.com");
+//			client.purgeCDNContainer(containerName, null);
+//			//client.purgeCDNObject(containerName, "object.txt", "lowell.vaughn@rackspace.com");
+//			client.purgeCDNObject(containerName, "object.txt", null);
+//			client.purgeCDNObject(containerName, "path/object.txt", null);
+//	
+//			assertTrue(client.deleteContainer(containerName));
+//			
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//			fail(e.getMessage());
+//		} 
+//		
+//	}
+//	
+//	public void testCDNContainerFullListingAll() {
+//		FilesClient client = new FilesClient();
+//		try {
+//			assertTrue(client.login());
+//			String container = createTempContainerName("aaa_\u1422_aaa");
+//			client.cdnEnableContainer(container);
+//			// Now do a limit
+//			client.listCdnContainerInfo();
+//		} catch (Exception e) {
+//			fail(e.getMessage());
+//		} 
+//	}
+//	
+//	
+//	public void testCDNApi() {
+//		String containerName = createTempContainerName("java api Test\u03DA_\u2042\u03de#<>\u2043\u2042\u2044\u2045");
+//		//containerName = createTempContainerName("java Api Test no uniocde");
+//		//logger.warn("Container:" + containerName.length() + ":" + containerName);
+//		FilesClient client = new FilesClient();
+//		try {
+//			assertTrue(client.login());
+//			
+//			List<String> containers = client.listCdnContainers();
+//			int originalContainerListSize = containers.size();
+//			
+//			assertFalse(client.isCDNEnabled(containerName));
+//	
+//			String url = client.cdnEnableContainer(containerName);
+//			assertNotNull(url);
+//			assertTrue(client.isCDNEnabled(containerName));
+//			containers = client.listCdnContainers();
+//			assertEquals(originalContainerListSize + 1, containers.size());
+//			
+//			boolean found = false;
+//			for(String container : containers) {
+//				// logger.warn(container);
+//				if (containerName.equals(container)) found = true;
+//			}
+//			assertTrue(found);
+//			
+//			FilesCDNContainer info = client.getCDNContainerInfo(containerName);
+//			assertTrue(info.isEnabled());
+////			assertEquals("", info.getUserAgentACL());
+////			assertEquals("", info.getReferrerACL());
+//			String cdnUrl = info.getCdnURL();
+//			assertNotNull(cdnUrl);
+//			assertNotNull(info.getSSLURL());
+//			assertNotNull(info.getStreamingURL());
+//			
+//			client.cdnUpdateContainer(containerName, 31415, false, true);
+//			assertFalse(client.isCDNEnabled(containerName));
+//			info = client.getCDNContainerInfo(containerName);
+//			assertFalse(info.isEnabled());
+//			assertTrue(info.getRetainLogs());
+//			assertEquals(31415, info.getTtl());
+//			assertEquals(cdnUrl, info.getCdnURL());
+//			
+//			//client.cdnUpdateContainer(containerName, 54321, true, "Referrer Test", "User Agent Acl Test");
+//			client.cdnUpdateContainer(containerName, 54321, true, false);
+//			assertTrue(client.isCDNEnabled(containerName));
+//			info = client.getCDNContainerInfo(containerName);
+//			assertTrue(info.isEnabled());
+//			assertFalse(info.getRetainLogs());
+//			assertEquals(54321, info.getTtl());
+//			assertEquals(cdnUrl, info.getCdnURL());
+////			assertEquals("Referrer Test", info.getReferrerACL());
+////			assertEquals("User Agent Acl Test", info.getUserAgentACL());
+//			
+//
+//		} catch (Exception e) {
+//			fail(e.getMessage());
+//		} 
+//	}
+//	
 	// Test container name limits
 	public void testContainerNameLimits()  {
 		FilesClient fc = new FilesClient();
@@ -2075,7 +2068,7 @@ public class FilesClientTestCase extends TestCase {
 		FilesClient client = new FilesClient();
 		try {
 			assertTrue(client.login());
-			assertNotNull(client.getCdnManagementURL());
+			//assertNotNull(client.getCdnManagementURL());
 			assertNotNull(client.getStorageURL());
 
 		} catch (Exception e) {
