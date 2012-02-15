@@ -48,6 +48,7 @@ import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.EntityTemplate;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
@@ -2324,6 +2325,14 @@ public class FilesClient
      */
     public String storeStreamedObject(String container, InputStream data, String contentType, String name, Map<String,String> metadata) throws IOException, HttpException, FilesException
     {
+    	InputStreamEntity entity = new InputStreamEntity(data, -1);
+		entity.setChunked(true);
+		entity.setContentType(contentType);
+		return storeStreamedObject(container, entity, contentType, name, metadata);
+    }
+
+    public String storeStreamedObject(String container, HttpEntity entity, String contentType, String name, Map<String,String> metadata) throws IOException, HttpException, FilesException
+    {
     	if (this.isLoggedin())
     	{
 			String objName	 =  name;
@@ -2332,9 +2341,6 @@ public class FilesClient
 				HttpPut method = new HttpPut(storageURL+"/"+sanitizeForURI(container)+"/"+sanitizeForURI(objName));
      			method.getParams().setIntParameter("http.socket.timeout", connectionTimeOut);
     			method.setHeader(FilesConstants.X_AUTH_TOKEN, authToken);
-    			InputStreamEntity entity = new InputStreamEntity(data, -1);
-    			entity.setChunked(true);
-    			entity.setContentType(contentType);
     			method.setEntity(entity);
     			for(String key : metadata.keySet()) {
     				// logger.warn("Key:" + key + ":" + sanitizeForURI(metadata.get(key)));
@@ -2373,7 +2379,6 @@ public class FilesClient
     		throw new FilesAuthorizationException("You must be logged in", null, null);
     	}
     }
-
    /**
     * 
     * 
